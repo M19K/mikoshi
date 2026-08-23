@@ -30,15 +30,35 @@ and was going unasked.
 """
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
 import pathlib
 
 QUEUE = pathlib.Path(__file__).resolve().parent.parent / "Queue.md"
-# Every repo in this vault lives under one account. Change it here if that
-# ever stops being true, rather than in the regex.
-OWNER = "M19K"
+
+# **Whose repositories this vault cites.** Read from the environment, then from
+# the account `gh` is signed in as, and only then from nothing — because a
+# checker that resolves an unqualified repo name against somebody else's
+# account will report a stranger's commits as missing, which reads as an
+# accusation of fabricated work. Hardcoding one account here made the tool
+# correct on exactly one machine. [no-hardcoding rule]
+def _owner() -> str:
+    v = os.environ.get("MIKOSHI_GITHUB_OWNER", "").strip()
+    if v:
+        return v
+    try:
+        got = subprocess.run(["gh", "api", "user", "--jq", ".login"],
+                             capture_output=True, text=True, timeout=10)
+        if got.returncode == 0 and got.stdout.strip():
+            return got.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
+
+OWNER = _owner()
 
 # A SHA cited alongside a repo. Both forms agents actually write:
 #   `<owner>/<repo>` commit `69f289d`      ·      PR #13, `19b7de4`
@@ -138,7 +158,11 @@ def main():
             # neighbourhood says it identifies something other than a commit.
             found = {h for h in found
                      if not NOT_A_COMMIT.search(_around(text, h))}
-            pairs = [(f"{OWNER}/{proj}", sha) for sha in sorted(found)]
+            # With no account resolved, an unqualified name cannot be turned
+            # into a repo. Skip rather than guess — checking the wrong
+            # account's history reports a stranger's commits as missing.
+            pairs = ([(f"{OWNER}/{proj}", sha) for sha in sorted(found)]
+                     if OWNER else [])
         if not pairs:
             continue
         for repo, sha in pairs:

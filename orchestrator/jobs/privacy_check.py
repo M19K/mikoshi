@@ -71,8 +71,15 @@ import shutil
 import subprocess
 import sys
 
+# `.svg` is here deliberately, and it was missing until 2026-08-23. An SVG is
+# markup, so the image pass — which OCRs pixels — never opens it, and the text
+# pass skipped it for not being on this list. That is a file type that looked
+# checked twice and was checked neither time. SVGs routinely carry an editor's
+# name, a machine path, a `<title>`, a comment, or a font URL that fetches on
+# render. Found while clearing a repo for publication, with six of them in it.
 TEXT_SUFFIX = {".md", ".py", ".txt", ".json", ".jsonl", ".yml", ".yaml",
-               ".toml", ".html", ".css", ".js", ".ts", ".sh", ".env", ".cfg"}
+               ".toml", ".html", ".css", ".js", ".ts", ".sh", ".env", ".cfg",
+               ".svg"}
 IMAGE_SUFFIX = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".tiff"}
 SKIP = {".git", ".venv", "__pycache__", "node_modules", "dist", "build"}
 
