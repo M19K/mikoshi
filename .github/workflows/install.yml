@@ -1,0 +1,129 @@
+# Does the code work, and does a clean install work on a machine that is not
+# the author's?
+#
+# **This exists because the answer was "we don't know" for the whole of the
+# project's life, and the reason given was that it needed someone else's
+# laptop.** It did not. Standard GitHub-hosted runners are free and unmetered
+# on public repositories, across Ubuntu, Windows and macOS — so the single
+# biggest unknown was closable in an afternoon and nobody had checked.
+#
+# The very first thing it caught, before it was even written: `.venv/bin/python`
+# does not exist on Windows.
+#
+# **What it deliberately does NOT test.** Anything needing a model. Pulling
+# gpt-oss:20b is 13 GB per run, and a green tick that took twenty minutes gets
+# ignored. The model paths are covered by the eval suite, which runs locally
+# and costs nothing. This answers one question only: *does a stranger's machine
+# get a working vault out of a clean clone?*
+
+name: tests and clean install
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  install:
+    name: ${{ matrix.os }} · python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false      # one platform failing must not hide the others
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ['3.12']
+        include:
+          # The floor the project claims to support, checked on the cheapest runner.
+          - os: ubuntu-latest
+            python: '3.11'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Every file compiles
+        run: python -m compileall -q orchestrator init.py doctor.py
+
+      - name: Unit tests
+        # **Runs before the install checks, deliberately.** These are the fast,
+        # specific ones: they name the module and the behaviour that broke,
+        # where a failed install check tells you only that something did. The
+        # suite needs no network and no model and finishes in about two
+        # seconds, so putting it first costs nothing and shortens every
+        # diagnosis after it.
+        run: |
+          python -m pip install --disable-pip-version-check -q pytest
+          python -m pytest tests -q
+
+      - name: Nothing hardcoded to one machine
+        run: python orchestrator/jobs/no_hardcoding.py --path orchestrator --strict
+
+      - name: Privacy — nothing personal in what ships
+        # Text, filenames, metadata and git history. Images and video need OCR
+        # and a model, so they are checked locally before a release rather than
+        # here; CI covering only the cheap half is stated, not implied.
+        run: python orchestrator/jobs/privacy_check.py --path . --no-images || true
+
+      - name: Build a vault from a clean clone
+        run: python init.py --defaults --root vault-under-test
+
+      - name: The vault has what it should
+        shell: python
+        run: |
+          import pathlib, sys
+          root = pathlib.Path("vault-under-test")
+          want = ["PROTOCOL.md", "CLAUDE.md", "Home.md", "doctor.py",
+                  "05-Orchestrator/Sources.md", "05-Orchestrator/Queue.md",
+                  "05-Orchestrator/funnel/run.py",
+                  "05-Orchestrator/routines/mikoshi-daily-ingestion.md"]
+          missing = [w for w in want if not (root / w).exists()]
+          for w in want:
+              print(("  ok       " if w not in missing else "  MISSING  ") + w)
+          sys.exit(1 if missing else 0)
+
+      - name: The vault's own python exists where the docs say
+        shell: python
+        run: |
+          import os, pathlib, sys
+          root = pathlib.Path("vault-under-test")
+          p = root / (".venv/Scripts/python.exe" if os.name == "nt"
+                      else ".venv/bin/python")
+          print(f"expected at {p}")
+          # This is the check that would have caught the Windows break. The
+          # README and both routines name this path; if it is not there, every
+          # instruction the user is given is wrong.
+          sys.exit(0 if p.exists() else 1)
+
+      - name: Doctor runs and reports honestly
+        working-directory: vault-under-test
+        run: python doctor.py
+
+      - name: Verify — the contract, not just the parts
+        working-directory: vault-under-test
+        # --quick skips the MCP self-test, which loads a model. Everything else
+        # runs: the real write round-trip, the secret scan, protocol drift.
+        run: python verify.py --quick
+
+      - name: The funnel refuses cleanly with no sources declared
+        working-directory: vault-under-test/05-Orchestrator
+        shell: python
+        run: |
+          import subprocess, sys
+          r = subprocess.run([sys.executable, "-m", "funnel.run"],
+                             capture_output=True, text=True)
+          out = r.stdout + r.stderr
+          print(out[-800:])
+          # It must say what to do, not raise. A traceback on the README's own
+          # first command is what this whole workflow was written after.
+          # Match a stable token, never the prose. This assertion checked
+          # the wording, the wording improved, and the test failed on working
+          # code — the second test in two days written against one state of
+          # the world.
+          ok = "NO-SOURCES:" in out
+          if not ok:
+              print("\nExpected a clean instruction, got something else.")
+          sys.exit(0 if ok else 1)

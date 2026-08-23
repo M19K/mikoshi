@@ -1,0 +1,23 @@
+# RSSHub — the bridge to sources that publish no feed of their own.
+# Closes two gaps at once: Anthropic (which has no RSS at all) and the 88 X
+# accounts. Anthropic needs no login and works immediately; X needs the owner's own
+# session cookie in .env, which no agent reads or handles.
+services:
+  rsshub:
+    image: diygod/rsshub:latest
+    container_name: rsshub
+    restart: unless-stopped
+    ports:
+      - "1200:1200"
+    environment:
+      NODE_ENV: production
+      CACHE_TYPE: memory
+      CACHE_EXPIRE: "3600"          # an hour; the funnel polls daily
+      # Read from .env if present. Absent means X routes return 503 and every
+      # other route keeps working — the failure is contained, not total.
+      # This build reads TWITTER_AUTH_TOKEN, not TWITTER_COOKIE. The container
+      # happily accepted TWITTER_COOKIE and kept reporting "not configured" —
+      # the variable was set and simply never read. Verified by grepping the
+      # image's own bundle for TWITTER_* names. [2026-08-17]
+      TWITTER_AUTH_TOKEN: ${TWITTER_AUTH_TOKEN:-}
+      TWITTER_COOKIE: ${TWITTER_COOKIE:-}

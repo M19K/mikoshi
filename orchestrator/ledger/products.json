@@ -1,0 +1,259 @@
+{
+ "_": [
+  "The declared cost dependencies of every product, machine-readable.",
+  "",
+  "This file answers one question the prose ledger could not: for a given",
+  "product, what does it cost to keep it alive? Two halves make that up —",
+  "`subscriptions`, which are fixed and per-product, and `pools`, which are",
+  "shared resources several products draw on and where the per-product number",
+  "has to be attributed rather than read off a bill.",
+  "",
+  "`source` on every subscription says where the number came from. Nothing here",
+  "is a billing-API reading; they are hand-entered from the record named. Treat",
+  "each as last-known-state and re-verify before acting on it.",
+  "",
+  "Edit this file, not the prose. `01-Knowledge Base/Infrastructure Ledger.md`",
+  "Part 2 is GENERATED from it by `ledger.py render` — hand-editing the prose",
+  "is how it went stale for three weeks while every fact around it moved.",
+  "",
+  "`keys` names the LABEL in ledger/keys.md, never a value. keys.py is",
+  "the only thing that reads that file; nothing here or in the prose",
+  "ledger ever holds a secret."
+ ],
+ "pools": {
+  "openrouter": {
+   "label": "OpenRouter",
+   "billing": "prepaid credit, drawn down by usage",
+   "attribution": "api_key",
+   "note": "One balance, several products. Exact per-product spend needs one API key per product plus a management key to read /api/v1/activity?api_key_hash=. Until that exists, attribution falls back to what each project recorded itself in Costs.jsonl, and the difference from the pool total is reported as unattributed rather than spread.",
+   "known_non_product_keys": {
+    "MCP: OpenRouter MCP: Claude": "Auto-created by OpenRouter when the connector was added to Claude Code, 2026-08-20. $0.000 used because the connector's reads (credits, models, docs) are free. EXPIRES 2026-08-27 — the connector stops working that day unless renewed. Leave it alone; it is not a product key. But if the connector is ever used to GENERATE (send-message, generate-image), that spend bills here and will show as unattributed, so check this row before blaming a product. The expiry CANNOT be removed or extended: it is set when the OAuth flow mints the key, and PATCH /keys/{hash} accepts name, limit, limit_reset and disabled but has no expires_at field. OpenRouter's MCP server (mcp.openrouter.ai/mcp) only supports OAuth, not API-key headers, so there is no permanent-connection variant. Re-auth with `claude mcp login openrouter` — one command, config is preserved. Nothing in the ledger depends on it: the balance is read with the `management` key, which never expires.",
+    "Default key": "RETIRED 2026-08-20 by the owner. The original shared key: $25.27 drawn across four products, which is the entire unattributed balance and always will be — deleting the key does not recover attribution, and OpenRouter's activity history only reaches back 30 days. Its $25.27 stays in the account total and is the permanent cost of having started with one key. Two projects were still reading it when it died: project-three (code/site/secrets.json, H-024) and project-one (OPENROUTER_API_KEY, H-025)."
+   },
+   "attribution_baseline": "2026-08-20: per-product keys issued. Everything drawn BEFORE this date is unattributable by construction; everything after is attributable by key. Do not try to reconcile the $25.27 — treat it as opening balance.",
+   "opening_balance_usd": 25.267906686
+  },
+  "hume": {
+   "label": "Hume AI",
+   "billing": "subscription plus usage allowance",
+   "attribution": "dedicated key",
+   "note": "CASEY only. Two keys — API key and secret — labelled project-three-api and project-three-secret."
+  },
+  "openai": {
+   "label": "OpenAI",
+   "billing": "usage-billed",
+   "attribution": "dedicated key",
+   "note": "CASEY only, session summaries. Supplied to the casey thread separately and folded into the master key file 2026-08-20."
+  }
+ },
+ "products": {
+  "project-three": {
+   "display": "CASEY",
+   "status": "live, dormant",
+   "subscriptions": [
+    {
+     "service": "Supabase",
+     "plan": "Pro + Micro compute",
+     "monthly_usd": 34.68,
+     "note": "$25 org + $9.68 compute",
+     "source": "ledger 2026-07-29"
+    },
+    {
+     "service": "Railway",
+     "plan": "Hobby",
+     "monthly_usd": 5.0,
+     "note": "frontend + backend; ~$3 actual usage",
+     "source": "ledger 2026-07-29"
+    },
+    {
+     "service": "Hume AI",
+     "plan": "Starter",
+     "monthly_usd": 3.0,
+     "period_ends": "2026-09-15",
+     "note": "allowance 5 to 40 min/mo",
+     "source": "project-three/Decisions.jsonl 2026-08-17"
+    },
+    {
+     "service": "Vercel",
+     "plan": "Hobby",
+     "monthly_usd": 0.0,
+     "note": "casey-website marketing site",
+     "source": "ledger 2026-07-29"
+    },
+    {
+     "service": "Resend",
+     "plan": "Free",
+     "monthly_usd": 0.0,
+     "note": "Supabase Auth SMTP relay",
+     "source": "ledger 2026-07-29"
+    },
+    {
+     "service": "LogRocket",
+     "plan": "Free",
+     "monthly_usd": 0.0,
+     "source": "ledger 2026-07-29"
+    },
+    {
+     "service": "Render",
+     "plan": "Free",
+     "monthly_usd": 0.0,
+     "note": "parked migration target, no traffic",
+     "source": "ledger 2026-07-29"
+    },
+    {
+     "service": "OpenAI",
+     "plan": "usage-billed",
+     "monthly_usd": 0.0,
+     "note": "gpt-4o-mini, session summaries only",
+     "source": "ledger 2026-07-29"
+    }
+   ],
+   "pools": [
+    "hume",
+    "openai"
+   ],
+   "keys": {
+    "hume": [
+     "project-three-api",
+     "project-three-secret"
+    ],
+    "openai": "project-three"
+   }
+  },
+  "project-three": {
+   "display": "Portfolio website",
+   "status": "in build",
+   "subscriptions": [
+    {
+     "service": "Higgsfield",
+     "plan": "trial, auto-charges $49",
+     "monthly_usd": 49.0,
+     "note": "3-day trial started 2026-08-16, credits topped to 1000. Auto-charge is the risk, not the plan.",
+     "source": "ledger 2026-08-18"
+    },
+    {
+     "service": "Vercel",
+     "plan": "Hobby (when it ships)",
+     "monthly_usd": 0.0,
+     "source": "ledger 2026-08-18"
+    }
+   ],
+   "pools": [
+    "openrouter"
+   ],
+   "pool_note": "Powers the site's chat. Holds the key the other three products borrowed.",
+   "keys": {
+    "openrouter": "project-three"
+   }
+  },
+  "project-four": {
+   "display": "project-four",
+   "status": "in build",
+   "subscriptions": [],
+   "pools": [
+    "openrouter"
+   ],
+   "pool_note": "Model-comparison ladders. Reads the same key from the environment rather than duplicating the secret.",
+   "keys": {
+    "openrouter": "project-four"
+   }
+  },
+  "project-three": {
+   "display": "project-three",
+   "status": "in build",
+   "subscriptions": [
+    {
+     "service": "Vercel",
+     "plan": "Hobby",
+     "monthly_usd": 0.0,
+     "source": "ledger 2026-07-29"
+    }
+   ],
+   "pools": [
+    "openrouter"
+   ],
+   "pool_note": "Bring-your-own-key for Anthropic / OpenAI / OpenRouter. [@owner 2026-08-20] confirmed OpenRouter is the route in use.",
+   "keys": {
+    "openrouter": "project-three"
+   }
+  },
+  "project-two": {
+   "display": "project-two",
+   "status": "shipped",
+   "subscriptions": [],
+   "pools": [
+    "openrouter"
+   ],
+   "pool_note": "Model routing in the shipped macOS app. The ledger recorded this as the Anthropic API direct; [@owner 2026-08-20] corrected it to OpenRouter.",
+   "keys": {
+    "openrouter": "project-two"
+   }
+  },
+  "project-one": {
+   "display": "Pacific Technology website",
+   "status": "client build",
+   "subscriptions": [
+    {
+     "service": "Vercel",
+     "plan": "Hobby",
+     "monthly_usd": 0.0,
+     "note": "pacific-tech-staging",
+     "source": "ledger 2026-07-29"
+    },
+    {
+     "service": "OpenAI",
+     "plan": "assistant, flagged off",
+     "monthly_usd": 0.0,
+     "source": "ledger 2026-07-29"
+    }
+   ],
+   "pools": []
+  },
+  "project-one": {
+   "display": "Course distiller",
+   "status": "active",
+   "subscriptions": [],
+   "pools": [],
+   "note": "local Python + Ollama"
+  },
+  "project-two": {
+   "display": "PM extraction",
+   "status": "active",
+   "subscriptions": [],
+   "pools": [],
+   "note": "local Whisper + Ollama"
+  },
+  "project-one": {
+   "display": "Job search",
+   "status": "active",
+   "subscriptions": [],
+   "pools": [
+    "openrouter"
+   ],
+   "keys": {
+    "openrouter": "project-one"
+   },
+   "note": "documents and pipeline, no hosting. Four launchd agents run unattended on this Mac (sweep and evaluate every 6h, prepare daily, replies every 30min) and `evaluate` is the spending one: `openrouter-runner.mjs pipeline` scores every pending role, measured 2026-08-21 at $0.0033 a role. The key label was missing here until 2026-08-21, so its spend was counted as a non-product key and never named in `reconcile`."
+  },
+  "project-four": {
+   "display": "Product portfolio",
+   "status": "active",
+   "subscriptions": [],
+   "pools": [
+    "openrouter"
+   ],
+   "note": "GitHub, plus opt-in routed inference for measurement runs",
+   "pool_note": "The synthesis layer and the funnel run on a local model by default and cost nothing. From 2026-08-22 they can be routed through project-four's proxy onto this pool by setting MIKOSHI_LLM_BASE_URL — opt-in per run, never a default, because switching to a paid route is a money decision. First such run the same day: $0.062 for a 30-question quality eval.",
+   "keys": {
+    "openrouter": "mikoshi-internal"
+   }
+  },
+  "project-two": {
+   "display": "Mikoshi console",
+   "status": "in build",
+   "subscriptions": [],
+   "pools": [],
+   "note": "runs locally; reads the vault"
+  }
+ }
+}

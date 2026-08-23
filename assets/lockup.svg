@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" width="260" height="64" role="img" aria-label="Mikoshi">
+  <title>Mikoshi</title>
+  <g stroke="#BE3A28" stroke-width="4.5" stroke-linecap="square">
+    <path d="M12 16h40"/><path d="M8 24h48"/>
+  </g>
+  <g stroke="#0F161B" stroke-width="4.5" stroke-linecap="square">
+    <path d="M18 24v28"/><path d="M46 24v28"/><path d="M18 34h28"/>
+  </g>
+  <!-- Wordmark set at the gate's own height, one gate-width clear of it. That
+       gap is the spacing rule: never less than the distance between the uprights. -->
+  <text x="86" y="43" font-family="IBM Plex Mono, ui-monospace, SFMono-Regular, monospace"
+        font-size="27" font-weight="600" letter-spacing="1.5" fill="#0F161B">mikoshi</text>
+</svg>

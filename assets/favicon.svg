@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Mikoshi">
+  <title>Mikoshi</title>
+  <!-- 16px variant: the tie-beam is dropped and the strokes thickened. At that
+       size the crossbar closes the counters and the mark turns to mud. -->
+  <g fill="none" stroke="#BE3A28" stroke-width="7" stroke-linecap="square">
+    <path d="M10 16h44"/><path d="M6 26h52"/>
+  </g>
+  <g fill="none" stroke="#0F161B" stroke-width="7" stroke-linecap="square">
+    <path d="M18 26v26"/><path d="M46 26v26"/>
+  </g>
+</svg>

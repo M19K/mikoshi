@@ -1,0 +1,18 @@
+# Secrets — never, at any depth.
+**/keys.md
+**/secrets.json
+.env
+
+# One person's corpus, caches and outputs. The system ships empty.
+state/
+staged/
+digests/
+**/runs/
+**/evidence/
+
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+.DS_Store
+.pytest_cache/

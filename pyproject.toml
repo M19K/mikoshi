@@ -1,0 +1,46 @@
+[project]
+name = "mikoshi"
+version = "1.0.0"
+description = "Shared memory for several AI agents — a plain-markdown vault with a protocol, an ingestion funnel, and answers cited to file and line."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
+# **Deliberately almost empty, and that is the design.** The vault is markdown
+# and SQLite; the model is local. There is no web framework, no ORM, no vector
+# database and no agent library, because every one of those would be a thing to
+# keep current in exchange for something the standard library already does.
+#
+# `sqlite-vec` is the one hard dependency. Without it the funnel still runs and
+# prints `vec=False` on its first line — keyword search keeps working and
+# semantic search silently does not. That single line was the only warning a new
+# user got until 2026-08-23, which is why it is a dependency now rather than a
+# suggestion.
+dependencies = [
+  "sqlite-vec>=0.1.6",
+]
+
+[project.optional-dependencies]
+# Everything needed to run the suite in `tests/`. Nothing more: the tests use
+# only the standard library and pytest, and reach neither the network nor a
+# model, so they run in about two seconds on a cold runner. A suite that needs
+# a 13 GB pull is a suite people learn to skip.
+dev = ["pytest>=8.0"]
+
+# The QA layer drives a browser through a container. Heavy, optional, and
+# nothing else needs it — `pip install mikoshi[qa]` only if you want it.
+qa = ["testzeus-hercules>=0.1.0"]
+
+[project.urls]
+Homepage = "https://github.com/M19K/mikoshi"
+
+[tool.setuptools]
+packages = []
+
+
+[tool.pytest.ini_options]
+# The import root is `orchestrator/`, not the repo root — the modules use
+# relative imports and are run as `python3 -m funnel.run` from inside a vault.
+# `tests/conftest.py` puts it on the path; this only makes the invocation short.
+testpaths = ["tests"]
+addopts = "-q"
