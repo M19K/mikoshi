@@ -720,56 +720,59 @@ def check(vault):
                                   f"cannot see it and reconcile counts it as a "
                                   f"non-product key. Add the label."))
 
-    # ---- prior art: a project with code must say what it was built from ----
+    # ---- design basis: a project with code must show it studied the field ----
     #
-    # [@owner · 2026-08-23] The standing rule is *take the existing thing
-    # wholesale, read all of it, then improve it*. It stood from 2026-08-19 with
-    # nothing able to fail on it, and was followed loosely twice — most plainly
-    # on 2026-08-23, when a thread reported on an upstream project's
-    # architecture and its gaps having read 4 documents of 41 and none of its
-    # 979 source files.
+    # [@owner · 2026-08-23] The rule is *study the best thing that exists, write
+    # our own, credit no one.* The artefact it demands is an engineering
+    # analysis of a problem space — what exists, how thoroughly we examined it,
+    # where it falls short, what ours does differently. **It records no debt,
+    # because there is none: nothing of anyone else's is copied.** It is ours,
+    # it is internal, and it never ships.
     #
-    # **This checks the record, not the reading**, and the difference is stated
-    # rather than hidden: nothing here can tell whether someone actually read a
-    # codebase. What it can tell is whether they wrote down what they took, how
-    # much of it they read, and what they deliberately left — which is the
-    # artefact the rule demands and the thing a reviewer can argue with.
+    # **This checks the artefact, not the reading**, and the difference is said
+    # rather than hidden: nothing here can tell whether someone actually
+    # examined a codebase. What it can tell is whether they wrote down what the
+    # field already does and where ours is better — which is the thing a later
+    # thread can argue with, and the thing that stops the same ground being
+    # covered twice.
     #
-    # "Nothing existed, and here is what I searched" is a complete and valid
-    # answer. A missing file is not.
-    PRIOR_ART_SECTIONS = ("what we took", "how much we read",
-                          "what we are not taking", "what we do better")
+    # A project genuinely first of its kind declares `design_basis: none` in its
+    # `_index.md` and says what was searched. Silence is not an answer.
+    BASIS_SECTIONS = ("what exists", "how thoroughly", "where it falls short",
+                      "what ours does differently")
     for pd in sorted((vault / "02-Projects").iterdir()):
         if not pd.is_dir() or pd.name.startswith("."):
             continue
         if not (pd / "code").is_dir():
             continue
-        # **A project may declare itself standalone**, with `prior_art: standalone`
-        # in its `_index.md`. That is a statement on the record — the project was
-        # built independently — and it is read from the project rather than
-        # listed here, so exempting one does not mean editing this file.
         idx = frontmatter(pd / "_index.md") or {}
-        if str(idx.get("prior_art", "")).strip().lower() in ("standalone", "none"):
+        # `none` — genuinely first of its kind, and the search is stated.
+        # `withheld` — the owner has decided this project keeps no such note.
+        # Both live in `_index.md`, which is a curated file: an agent may only
+        # write one there to record a decision the owner actually made.
+        if str(idx.get("design_basis", "")).strip().lower() in (
+                "none", "first-of-kind", "withheld"):
             continue
-        pa = pd / "Prior Art.md"
-        if not pa.exists():
-            f.append(("prior-art-missing", pd.name,
-                      "has `code/` and no `Prior Art.md`. The rule is to take an "
-                      "existing implementation wholesale, read all of it, and "
-                      "improve it — so what it was built from, its licence, how "
-                      "much of it was actually read, and what was deliberately "
-                      "left behind are part of the record. "
-                      "\"Nothing existed, and here is what I searched\" is a "
-                      "complete answer; silence is not."))
+        basis = pd / "Design Basis.md"
+        if not basis.exists():
+            f.append(("design-basis-missing", pd.name,
+                      "has `code/` and no `Design Basis.md`. The rule is to study "
+                      "the best existing implementation of the use case "
+                      "exhaustively, then write our own and improve on it — so "
+                      "what already exists, how much of it was actually "
+                      "examined, where it falls short, and what ours does "
+                      "differently are part of the record. Declare "
+                      "`design_basis: none` in `_index.md` if this is genuinely "
+                      "first of its kind, and say what you searched."))
             continue
-        body = pa.read_text(encoding="utf-8", errors="replace").lower()
-        missing = [h for h in PRIOR_ART_SECTIONS if h not in body]
+        body = basis.read_text(encoding="utf-8", errors="replace").lower()
+        missing = [h for h in BASIS_SECTIONS if h not in body]
         if missing:
-            f.append(("prior-art-thin", pd.name,
-                      f"`Prior Art.md` does not answer: {', '.join(missing)}. "
-                      f"The rejected half is the part a later thread needs — it "
-                      f"is what stops someone re-adopting what was already "
-                      f"looked at and turned down."))
+            f.append(("design-basis-thin", pd.name,
+                      f"`Design Basis.md` does not answer: {', '.join(missing)}. "
+                      f"*Where it falls short* is the half a later thread needs — "
+                      f"it is what stops us re-adopting a weakness somebody "
+                      f"already measured."))
 
     return f
 
