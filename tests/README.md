@@ -1,6 +1,6 @@
 # tests
 
-170 tests, no network, no model, about two seconds. They run on Ubuntu 3.11,
+179 tests, no network, no model, about two seconds. They run on Ubuntu 3.11,
 Ubuntu 3.12, Windows and macOS in the same workflow as the install check.
 
 ```bash

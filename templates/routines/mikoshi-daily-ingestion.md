@@ -47,6 +47,17 @@ newsletters. Do not skip the write.
    label.** The label is the owner's consent; nothing outside it is ingestible.
    Write `05-Orchestrator/state/email/YYYY-MM-DD.json`:
    `{"fetched": "...", "messages": [{"id","subject","from","date","body","labels"}]}`
+
+   **First, check the label exists, and write down what you found.** You are
+   holding the connection; nothing downstream can ask this question. List the
+   account's labels and write
+   `05-Orchestrator/state/email/precondition.json`:
+   `{"ok": true}` when the label is there, or
+   `{"ok": false, "why": "no label named 'mikoshi' on this account"}` when it
+   is not. **A filter that can never match otherwise drops an empty file every
+   day and reads as a quiet mailbox forever** — which is what happened until
+   2026-08-23. Do the same for any connector whose scope depends on something
+   only you can see.
 2. **Meetings** — Granola `list_meetings` since yesterday, then
    `get_meeting_transcript` for each. Write
    `05-Orchestrator/state/meetings/YYYY-MM-DD.json`:

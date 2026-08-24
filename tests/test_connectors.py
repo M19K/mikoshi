@@ -89,6 +89,8 @@ def test_staleness_is_per_connector_not_global(state):
     edit. One threshold for both would either cry wolf or say nothing."""
     state("email", [], age_days=5)
     state("drive", [], age_days=5)
+    (connectors.STATE / "drive" / "scope.json").write_text(
+        '{"folders": ["Research"]}', encoding="utf-8")
     assert connectors.health("email")["state"] == "ABSENT"
     assert connectors.health("drive")["state"] == "quiet"
 
@@ -207,9 +209,97 @@ def test_strict_status_passes_when_every_connector_has_dropped(tmp_path):
         d = tmp_path / name
         d.mkdir(parents=True)
         (d / "run.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "drive" / "scope.json").write_text('{"folders": []}', encoding="utf-8")
     p = _status(tmp_path, strict=True)
     assert p.returncode == 0, p.stdout
     # The word appears in the header explaining the states; no ROW may carry it.
-    rows = [l for l in p.stdout.splitlines() if l.startswith("  ")]
+    rows = [l for l in p.stdout.splitlines() if l.startswith("     ")]
     assert rows and not any("ABSENT" in l for l in rows)
     assert all("quiet" in l for l in rows)
+
+
+# --------------------------------------------------- the third silence [H-053]
+#
+# `quiet` says the routine looked and found nothing. A connector whose own
+# precondition is unmet also drops an empty file and also reads as `quiet` — but
+# it did not look and it never will. Mail sat in exactly that state: it filters
+# on a label that does not exist on the account, so the filter could never
+# match, and status reported "nothing new" every day.
+
+def test_a_connector_that_can_never_match_is_not_quiet(state):
+    state("email", [])
+    (connectors.STATE / "email" / "precondition.json").write_text(
+        json.dumps({"ok": False, "why": "no label named 'mikoshi' on this account"}),
+        encoding="utf-8")
+    h = connectors.health("email")
+    assert h["state"] == "UNCONFIGURED"
+    assert "no label named" in h["why"]
+
+
+def test_the_precondition_is_checked_before_the_drop_files(state):
+    """A broken connector with fresh records is still broken."""
+    state("email", [{"id": "1", "body": "x"}])
+    (connectors.STATE / "email" / "precondition.json").write_text(
+        '{"ok": false, "why": "scope removed"}', encoding="utf-8")
+    assert connectors.health("email")["state"] == "UNCONFIGURED"
+
+
+def test_a_satisfied_precondition_leaves_the_normal_states_alone(state):
+    state("email", [])
+    (connectors.STATE / "email" / "precondition.json").write_text(
+        '{"ok": true}', encoding="utf-8")
+    assert connectors.health("email")["state"] == "quiet"
+
+
+def test_no_precondition_file_claims_nothing_either_way(state):
+    """Absent must never be read as healthy — it is simply unreported."""
+    state("email", [])
+    assert connectors.health("email")["state"] == "quiet"
+    assert connectors.precondition("email") is None
+
+
+def test_an_unreadable_precondition_file_is_a_fault_not_a_pass(state):
+    state("email", [])
+    (connectors.STATE / "email" / "precondition.json").write_text(
+        "{ half writ", encoding="utf-8")
+    assert connectors.health("email")["state"] == "UNCONFIGURED"
+
+
+def test_an_undeclared_drive_scope_is_off_and_not_a_fault(state):
+    """**`off` and `UNCONFIGURED` must not merge.** Reading nothing until
+    folders are declared is the deliberate default; a declared mail label that
+    does not exist is something that was configured and is broken."""
+    h = connectors.health("drive")
+    assert h["state"] == "off"
+    assert "not a fault" in h["why"]
+
+
+def test_a_declared_drive_scope_switches_it_on(state):
+    d = connectors.STATE / "drive"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "scope.json").write_text('{"folders": ["Research"]}', encoding="utf-8")
+    assert connectors.health("drive")["state"] == "ABSENT"      # no drop yet
+
+
+def test_strict_status_fails_on_a_connector_that_can_never_match(tmp_path):
+    for name in ("newsletters", "email", "meetings", "drive"):
+        d = tmp_path / name
+        d.mkdir(parents=True)
+        (d / "run.json").write_text("[]", encoding="utf-8")
+    (tmp_path / "drive" / "scope.json").write_text('{"folders": []}', encoding="utf-8")
+    (tmp_path / "email" / "precondition.json").write_text(
+        '{"ok": false, "why": "label absent"}', encoding="utf-8")
+    p = _status(tmp_path, strict=True)
+    assert p.returncode == 1
+    assert "UNCONFIGURED" in p.stdout
+    assert "label absent" in p.stdout
+
+
+def test_strict_status_does_not_fail_on_a_deliberate_off(tmp_path):
+    for name in ("newsletters", "email", "meetings"):
+        d = tmp_path / name
+        d.mkdir(parents=True)
+        (d / "run.json").write_text("[]", encoding="utf-8")
+    p = _status(tmp_path, strict=True)          # drive has no scope → off
+    assert p.returncode == 0, p.stdout
+    assert "off" in p.stdout

@@ -190,7 +190,7 @@ cost ledger, the privacy check and the calibration score all run. Published
 2026-08-23 — **the install is proven by CI on four platform-and-version
 combinations, which is not the same as proven by a stranger.**
 
-**170 unit tests**, on four platform-and-version combinations, alongside the
+**179 unit tests**, on four platform-and-version combinations, alongside the
 clean-install check — see [`tests/README.md`](tests/README.md), which states
 what they do *not* cover as plainly as what they do. They are deliberately
 narrow: they hold down the paths whose failure is silent, because every one of

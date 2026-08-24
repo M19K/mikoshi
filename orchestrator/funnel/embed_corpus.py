@@ -34,8 +34,15 @@ def notes():
 
 
 def title_of(path: pathlib.Path, text: str) -> str:
+    # A `#` inside a fenced block is a shell comment, not a heading. Reading one
+    # as an H1 gave `project-four/Live Status.md` the title "then the same for
+    # project-two, then:" and wrote it as the display text of a wikilink.
+    fenced = False
     for line in text.splitlines():
-        if line.startswith("# "):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if not fenced and line.startswith("# "):
             return line[2:].strip()
     return path.stem
 

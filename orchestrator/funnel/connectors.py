@@ -77,7 +77,7 @@ def load_drops(name: str) -> list[dict]:
     if not d.exists():
         return []
     out = []
-    for f in sorted(d.glob("*.json")):
+    for f in _drop_files(d):
         try:
             data = json.loads(f.read_text(encoding="utf-8"))
         except json.JSONDecodeError:
@@ -107,15 +107,95 @@ def last_drop(name: str):
     d = drop_dir(name)
     if not d.exists():
         return None
-    files = sorted(d.glob("*.json"))
+    files = _drop_files(d)
     if not files:
         return None
     newest = max(files, key=lambda f: f.stat().st_mtime)
     return dt.datetime.fromtimestamp(newest.stat().st_mtime, dt.timezone.utc)
 
 
+# **The third silence, and it wears the first one's word.** [H-053, 2026-08-23]
+# `quiet` says *the routine looked and there was nothing*. A connector whose own
+# precondition is unmet also drops an empty file and also reads as `quiet` —
+# but it did not look and it never will. Mail was in exactly that state: it
+# filters on a label that does not exist on the account, so the filter can
+# never match, and `status` said "nothing new" every day.
+#
+# **A precondition is declared and checked, never inferred**, and it is
+# deterministic — no threshold, because there is no number here worth taking.
+# Two ways to declare one:
+#
+#   locally   an entry below: a callable returning None when the precondition
+#             holds, or (state, why) when it does not. It may only read the
+#             disk — this module holds no credential and reaches nothing.
+#   remotely  the routine writes `state/<name>/precondition.json` as
+#             {"ok": false, "why": "..."} when it discovers, with the
+#             connection in hand, that the thing can never match. Absent means
+#             nothing is claimed either way; it is never read as healthy.
+#
+# **`off` and `UNCONFIGURED` are different and must not be merged.** An
+# undeclared Drive scope means *nothing is readable*, which is the deliberate
+# default and not a fault. A declared mail label that does not exist is a
+# fault: it was configured, and it is broken.
+PRECONDITION = "precondition.json"
+
+# **Not every JSON file in a drop directory is a drop.** `scope.json` and
+# `precondition.json` are control files the routine writes beside the data, and
+# both were being globbed up and parked as records — `scope.json` since Drive
+# was added, silently, because Drive has never delivered anything for it to
+# corrupt. Caught by the tests for the precondition work, 2026-08-23.
+CONTROL_FILES = {PRECONDITION, "scope.json", "state.json", "cursor.json"}
+
+
+def _drop_files(d: pathlib.Path):
+    return [f for f in sorted(d.glob("*.json")) if f.name not in CONTROL_FILES]
+
+
+def _declared_precondition(name: str):
+    """What the routine reported about whether this connector can ever match."""
+    f = drop_dir(name) / PRECONDITION
+    if not f.exists():
+        return None
+    try:
+        data = json.loads(f.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return ("UNCONFIGURED", f"{PRECONDITION} is not readable JSON — the "
+                                f"routine wrote something it could not finish")
+    if data.get("ok") is False:
+        return ("UNCONFIGURED", str(data.get("why") or "the routine reported "
+                                    "the precondition does not hold"))
+    return None
+
+
+def _drive_scope(name: str):
+    """An undeclared Drive scope is the deliberate default, not a fault."""
+    if not (drop_dir(name) / "scope.json").exists():
+        return ("off", "no folder scope declared, so nothing is readable — "
+                       "that is the default, not a fault. Declare folders in "
+                       "state/drive/scope.json to switch it on.")
+    return None
+
+
+# name → callable. A connector with no entry has no locally checkable
+# precondition, which is different from having none: say so by adding one.
+PRECONDITIONS = {"drive": _drive_scope}
+
+
+def precondition(name: str):
+    """(state, why) when this connector cannot work, else None."""
+    local = PRECONDITIONS.get(name)
+    return (local(name) if local else None) or _declared_precondition(name)
+
+
 def health(name: str) -> dict:
-    """quiet, absent, or flowing — never one word for all three."""
+    """flowing, quiet, ABSENT, UNCONFIGURED or off — never one word for two.
+
+    Precondition first: a connector that can never match is not quiet, and
+    saying so before looking at drop files is the whole point of H-053."""
+    bad = precondition(name)
+    if bad:
+        state, why = bad
+        return {"name": name, "state": state, "days": None, "why": why}
     seen = last_drop(name)
     limit = ABSENT_AFTER_DAYS.get(name, 3)
     if seen is None:
@@ -198,15 +278,26 @@ def main():
     names = ["newsletters", "email", "meetings", "drive"]
     rows = [health(n) for n in names]
     width = max(len(r["name"]) for r in rows)
-    print("connector health — a source that is ABSENT is an outage, not a quiet day\n")
+    print("connector health — five states, because silence has five causes\n"
+          "  flowing / quiet   the routine ran and answered\n"
+          "  ABSENT            no drop file — the routine did not run\n"
+          "  UNCONFIGURED      it ran, and can never match. A fault.\n"
+          "  off               deliberately switched off. Not a fault.\n")
     for r in rows:
-        mark = {"ABSENT": "!!", "quiet": "  ", "flowing": "->"}[r["state"]]
+        mark = {"ABSENT": "!!", "UNCONFIGURED": "!!", "off": "--",
+                "quiet": "  ", "flowing": "->"}[r["state"]]
         age = f"{r['days']}d ago" if r["days"] is not None else "never"
         print(f"  {mark} {r['name']:<{width}}  {r['state']:<8} {age:<9} {r['why']}")
 
-    absent = [r for r in rows if r["state"] == "ABSENT"]
-    if absent and a.strict:
-        print(f"\n{len(absent)} source(s) ABSENT. The run is not healthy.")
+    # **`UNCONFIGURED` fails strict alongside `ABSENT`.** A connector that is
+    # attached and can never work is the same class of lie as one that stopped
+    # running — worse, because it reports a clean line forever rather than
+    # going stale. `off` does not fail: it is a deliberate switch, not a fault.
+    broken = [r for r in rows if r["state"] in ("ABSENT", "UNCONFIGURED")]
+    if broken and a.strict:
+        for r in broken:
+            print(f"\n  {r['name']}: {r['state']} — {r['why']}")
+        print(f"\n{len(broken)} source(s) cannot deliver. The run is not healthy.")
         raise SystemExit(1)
     print()
 

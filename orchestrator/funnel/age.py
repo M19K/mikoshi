@@ -32,6 +32,7 @@ import pathlib
 import re
 
 from . import store
+from .embed_corpus import title_of
 
 KB = store.VAULT / "01-Knowledge Base"
 TOOLING = KB / "Tooling Sources"
@@ -104,7 +105,7 @@ def entries():
                 if ":" in line:
                     k, _, v = line.partition(":")
                     meta[k.strip()] = v.strip().strip('"')
-        title = next((l[2:].strip() for l in text.splitlines() if l.startswith("# ")), f.stem)
+        title = title_of(f, text)   # one definition; a `#` in a code fence is not an H1
         out.append({"kind": "note", "file": f, "name": clean_name(title),
                     "raw_name": title, "block": text,
                     "filed": parse_date(meta.get("filed") or meta.get("created")),

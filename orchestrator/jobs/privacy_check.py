@@ -379,6 +379,24 @@ def main():
                     help="OCR images but skip the is-there-a-person question")
     a = ap.parse_args()
     root = pathlib.Path(a.path).resolve()
+    # **A file path used to scan nothing and report "Nothing found."**
+    # Every scanner reaches the tree through `rglob`, and `rglob` on a file
+    # yields no entries — so `--path some/file.html` walked zero files, matched
+    # zero patterns, and printed the same clean summary as a genuine pass.
+    # Caught 2026-08-23 running the check against `Open Board.html` before
+    # publishing it. Silence from this tool is only meaningful if it ran, so a
+    # path it cannot actually walk has to fail loudly rather than pass quietly.
+    if root.is_file():
+        print(f"  !! --path is a single file: {root.name}\n"
+              f"     This check walks a directory tree; pointed at one file it\n"
+              f"     scans nothing and would report 'Nothing found', which is a\n"
+              f"     false all-clear rather than a pass.\n"
+              f"     Run it against the containing directory instead:\n"
+              f"       --path {root.parent}")
+        sys.exit(2)
+    if not root.exists():
+        print(f"  !! --path does not exist: {root}")
+        sys.exit(2)
     vault = pathlib.Path(__file__).resolve().parent.parent.parent
     names = _names_from(vault)
 

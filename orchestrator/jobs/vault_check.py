@@ -404,6 +404,15 @@ def check(vault):
         # frontmatter values are bare by convention; quoting one makes the same
         # owner sort and compare as two different strings across tools
         fm = re.match(r"^---\n(.*?)\n---", body, re.S)
+        # No frontmatter block at all used to skip every lock check below, so a
+        # file that lost its whole block reported *fewer* findings than one
+        # missing a single key. `project-four` lost its block on 2026-08-23 when a
+        # handoff rewrote the top of the file, and only the `updated:` check
+        # noticed. The lock is the point of this file; say so plainly.
+        if not fm:
+            f.append(("log-hygiene", pd.name,
+                      "Live Status.md has no frontmatter block at all — the "
+                      "ownership lock (`owner:`, `last_write:`) lives there"))
         if fm:
             for field in ("owner", "last_write"):
                 if not re.search(rf"^{field}:", fm.group(1), re.M):
@@ -807,6 +816,16 @@ def main():
             if not sel:
                 continue
             print(f"\n{kind}  ({len(sel)})")
+            # A class where every row carries the same sentence is one rule, not
+            # N findings. `design-basis-missing` printed the same 500-word
+            # paragraph ten times — 14 KB of identical prose in a daily report,
+            # which is how a real finding becomes something nobody reads. State
+            # the rule once, then name who it applies to.
+            details = {d for _, _, d in sel}
+            if len(sel) > 2 and len(details) == 1:
+                print(f"      {details.pop()}")
+                print("  " + ", ".join(w for _, w, _ in sel))
+                continue
             for _, w, d in sel[:12]:
                 print(f"  {w}\n      {d}")
             if len(sel) > 12:
