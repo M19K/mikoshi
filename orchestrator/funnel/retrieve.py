@@ -43,12 +43,18 @@ from . import llm, store
 RRF_K = 8
 TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9._-]{1,}")
 
-# Must match `embed_corpus.SKIP_DIRS`. RRF fuses two rankings by position, so
+# Must match `store.CORPUS_SKIP_DIRS` — which is what the vector index actually
+# walks. This comment named `embed_corpus.SKIP_DIRS` until 2026-08-26; that
+# constant has been dead since `embed_corpus.notes()` started delegating to
+# `store.searchable`, so it pointed a maintainer at a list nothing reads.
+# RRF fuses two rankings by position, so
 # the retrievers have to be ranking the same set — when BM25 searched 272 files
 # and the vector index held 70, fusion was comparing ranks over different
 # populations and the merged order was worse than either input.
 SKIP_PARTS = {"code", "03-Archive", ".git", ".obsidian", "state", "staged",
-              "kb-backups", "__pycache__", "digests", "Entities", "funnel", "jobs"}
+              "kb-backups", "__pycache__", "digests", "Entities", "funnel",
+              "jobs", ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox",
+              ".venv", "node_modules", ".claude"}
 
 
 # Removed from the QUERY only, never from documents — document statistics stay

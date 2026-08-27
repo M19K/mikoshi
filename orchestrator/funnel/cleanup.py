@@ -68,8 +68,13 @@ CLAIM_PATTERNS = {
     "port": re.compile(r"\bport\s+(\d{2,5})\b", re.I),
 }
 
+# Build artefacts are excluded for the same reason `store.CORPUS_SKIP_DIRS`
+# excludes them: `.pytest_cache/README.md` is written by a test run, not by
+# anyone, and it arrived as the lowest-salience note in the vault on
+# 2026-08-26. It can never be pruned and is never a finding.
 SKIP_DIRS = {".obsidian", ".git", ".claude", "code", "03-Archive", "state",
-             "staged", "digests", "node_modules"}
+             "staged", "digests", "node_modules", "__pycache__",
+             ".pytest_cache", ".ruff_cache", ".mypy_cache", ".tox", ".venv"}
 
 # A claim only counts as being *about* an entity if it sits this close to a
 # mention of it. Measured against the false positives the unwindowed version
@@ -291,6 +296,127 @@ def contradictions(entity_notes=None):
 
 # --- 3 · salience ----------------------------------------------------------
 
+# **The file-level duplicate check cannot see where the funnel actually writes.**
+# `duplicates()` compares whole notes, but 27 of this run's 35 promotions were
+# `insert` — a `#### Entry` appended into an existing `Tooling Sources/` file.
+# Those are invisible to a walker that compares files, and on 2026-08-26 the
+# same OpenAI inference chip filed three times in one run, into one file, as
+# *Jalapeño*, *Jalapeño AI Chip* and *OpenAI Jalapeño Inference Chip* — two of
+# them citing an identical five-source adoption list. `cleanup` reported
+# 0 duplicates while they sat 8 lines apart.
+#
+# **The root cause is naming, not scoring.** `promote.py` dedupes on the exact
+# heading, and `distil.py` invents that heading per item, so one subject named
+# three ways is three entries. Comparing the prose instead of the title is what
+# closes it. [@claude-code/ingestion · 2026-08-26]
+ENTRY_RE = re.compile(r"^#### +(.+?) *$", re.M)
+ENTRY_SOURCES = ("01-Knowledge Base/Tooling Sources",)
+
+
+def entries():
+    """Every `#### ` block the funnel files, as (path, line, title, prose)."""
+    for rel in ENTRY_SOURCES:
+        root = VAULT / rel
+        if not root.is_dir():
+            continue
+        for f in sorted(root.glob("*.md")):
+            text = f.read_text(encoding="utf-8", errors="ignore")
+            marks = list(ENTRY_RE.finditer(text))
+            for i, m in enumerate(marks):
+                end = marks[i + 1].start() if i + 1 < len(marks) else len(text)
+                body = text[m.end():end]
+                # "What it is" is the entry's own words. The rest of the block —
+                # category, source link, confidence, adoption list — is template
+                # that every entry shares, and including it makes unrelated
+                # entries look alike.
+                what = re.search(r"\*\*What it is\*\*: *(.+?)(?:\n[-*]|\Z)",
+                                 body, re.S)
+                prose = (what.group(1) if what else "").strip()
+                yield {"path": _rel(f),
+                       "line": text[:m.start()].count("\n") + 1,
+                       "title": m.group(1).strip(),
+                       "prose": " ".join(prose.split())}
+
+
+# **No single cosine separates the two cases, and that is measured, not assumed.**
+# Over 484 entries on 2026-08-26: `HubSpot ↔ Salesforce` scores **0.919** — two
+# different CRMs — while the three Jalapeño entries that motivated this check
+# score **0.865–0.891**. A threshold low enough to catch the duplicates admits
+# every pair of rivals in a category; one high enough to reject rivals misses
+# the duplicates. Prose similarity alone cannot tell "one subject named twice"
+# from "two competitors described alike".
+#
+# **The title carries the signal the prose does not.** Duplicates share a rare
+# name token — `jalape`, `glean`, `stitch`, `playwright`; rivals share nothing,
+# and near-misses share only a common word (`google`, `claude`, `anthropic`,
+# `ai`). Rarity is measured across the corpus of titles rather than guessed, so
+# no vendor list is hardcoded and it re-weights itself as the vault grows.
+#
+# Hence the union below. Measured over the same 484 entries:
+#   cosine ≥ 0.92 alone                       4 pairs, 4 genuine
+#   cosine ≥ 0.86 + rare shared token          12 pairs, ~10 genuine
+#   the union                                 13 pairs, ~11 genuine
+# The union is used because each arm catches what the other misses: `Hermes
+# (Nous Research agent) ↔ Hermes Agent` needs the first (its shared token is
+# too common), and every Jalapeño pair needs the second.
+STRONG_AT = 0.92          # prose alone is enough
+RELATED_AT = 0.86         # prose plus a rare shared name
+RARE_DF = 4               # a title token in ≤ this many entries is distinctive
+TITLE_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9.+-]*")
+
+
+def _title_tokens(title: str):
+    return {w for w in TITLE_TOKEN_RE.findall(title.lower()) if len(w) > 1}
+
+
+def entry_duplicates(strong=STRONG_AT, related=RELATED_AT, rare_df=RARE_DF):
+    """The same subject filed twice under two names.
+
+    Legacy stubs carry no prose — a `(seen in N cards)` line and nothing else —
+    so they are skipped rather than compared to each other on emptiness.
+    """
+    rows = [e for e in entries() if len(e["prose"]) >= 120]
+    if len(rows) < 2:
+        return []
+    try:
+        import numpy as np
+    except ImportError:
+        return []
+
+    vecs, keep = [], []
+    for e in rows:
+        try:
+            v = store.embed(f"{e['title']}. {e['prose']}")
+        except Exception:
+            continue
+        if v is not None:
+            vecs.append(v)
+            keep.append(e)
+    if len(keep) < 2:
+        return []
+
+    df = defaultdict(int)
+    for e in keep:
+        for w in _title_tokens(e["title"]):
+            df[w] += 1
+
+    m = np.asarray(vecs, dtype=np.float32)
+    m /= (np.linalg.norm(m, axis=1, keepdims=True) + 1e-9)
+    sim = np.triu(m @ m.T, 1)
+
+    found = []
+    for i, j in np.argwhere(sim >= related):
+        a, b = keep[int(i)], keep[int(j)]
+        score = float(sim[i, j])
+        shared = {w for w in _title_tokens(a["title"]) & _title_tokens(b["title"])
+                  if df[w] <= rare_df}
+        if score >= strong or shared:
+            found.append({"a": a, "b": b, "similarity": round(score, 3),
+                          "shared": sorted(shared)})
+    found.sort(key=lambda r: -r["similarity"])
+    return found
+
+
 def salience():
     """What is load-bearing. Terms are printed, so the number can be argued with."""
     texts = {}
@@ -352,6 +478,17 @@ def main():
             print(f"  {r['similarity']}  {r['a']}\n         ↔ {r['b']}")
         if not d:
             print("  none. Nothing in the vault is a near-copy of anything else.")
+
+    if a.duplicates or every:
+        e = entry_duplicates()
+        print(f"\n— duplicate entries (cosine ≥ {STRONG_AT}, or ≥ {RELATED_AT} "
+              f"sharing a rare name) — {len(e)} pairs")
+        for r in e[:15]:
+            why = f" [{', '.join(r['shared'])}]" if r['shared'] else ""
+            print(f"  {r['similarity']}{why}  {r['a']['title']}  ({r['a']['path']}:{r['a']['line']})")
+            print(f"         ↔ {r['b']['title']}  ({r['b']['path']}:{r['b']['line']})")
+        if not e:
+            print("  none. No subject is filed twice under two names.")
 
     if a.contradictions or every:
         c = contradictions()

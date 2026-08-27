@@ -139,7 +139,7 @@ Mikoshi's structure is being open-sourced as a shared-memory system for agents. 
 
 ## Reporting back
 
-**The format lives in `<your-vault>/CLAUDE.md` → "How to talk to the owner", and only there.** Read it; do not rely on memory of it, and do not restate it here. In short: **five points maximum**, ordered — was it accomplished, is there a blocker, then what changes what they do next.
+**The format lives in `<your-vault>/CLAUDE.md` → "How to talk to the owner", and only there.** Read it; do not rely on memory of it, and do not restate it here. In short: **two or three lines**, ordered — was it accomplished, is there a blocker, then what changes what they do next. Longer only if they ask for it, and never on your own judgement.
 
 Two things are specific to this routine and belong here:
 

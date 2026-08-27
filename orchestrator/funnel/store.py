@@ -40,9 +40,16 @@ EMBED_VERSION = "nomic-v1-prefixed"
 # every rule in the vault, and the evals showed it was the most-wanted document
 # and completely unsearchable. `AGENTS.md`/`GEMINI.md` stay out — they are
 # seven-line pointers with no content of their own. [measured 2026-08-17]
+# **Build artefacts are not notes, and a test run creates one.** `.pytest_cache`
+# ships a `README.md`, so every run of the orchestrator's own test suite dropped
+# a file into the corpus and onto the prune list — it surfaced on 2026-08-26 as
+# the single lowest-salience "note" in the vault. `__pycache__` was already here
+# for the same reason; the rest are its siblings, listed so the next tool that
+# writes one does not have to be caught the same way. [@claude-code/ingestion]
 CORPUS_SKIP_DIRS = {".obsidian", ".git", ".claude", "code", "03-Archive",
                     "state", "staged", "digests", "Entities", "kb-backups",
-                    "__pycache__"}
+                    "__pycache__", ".pytest_cache", ".ruff_cache",
+                    ".mypy_cache", ".tox", ".venv", "node_modules"}
 CORPUS_SKIP_STEMS = {"AGENTS", "GEMINI"}
 
 

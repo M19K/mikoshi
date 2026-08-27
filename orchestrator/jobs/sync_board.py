@@ -14,17 +14,38 @@ and the tally are a pure function of `Queue.md`, so this writes them. Everything
 else on the board — what needs the owner, per-project work, parked ideas — is
 judgment, and judgment is not generated. Those stay hand-written.
 
-    python3 05-Orchestrator/jobs/sync_board.py           # rewrite if it differs
-    python3 05-Orchestrator/jobs/sync_board.py --check   # exit 1 if it differs
+    python3 05-Orchestrator/jobs/sync_board.py                 # rewrite if it differs
+    python3 05-Orchestrator/jobs/sync_board.py --check         # exit 1 if it differs
+    python3 05-Orchestrator/jobs/sync_board.py --stamps        # who touched what, when
+    python3 05-Orchestrator/jobs/sync_board.py --merge <file>  # resolve a republish conflict
+
+**Every section carries the time it was last changed and who changed it.**
+[@owner · 2026-08-27] Two sessions can both republish the board, and until now a
+conflict was settled by whichever agent was looking at it, guessing. One did
+that on 2026-08-27, decided another session's version superseded its own, and
+was wrong — with nothing on the page able to say otherwise.
+
+**So the rule is his and it is mechanical: the newest change wins.** What makes
+it safe is the *grain*. Whole-file "newest wins" would throw away a section the
+other session edited and this one did not, which is the very loss it is meant
+to prevent — so the comparison is per section, by `data-updated`. Two sessions
+editing different sections both keep their work; two editing the same section
+resolve to the later stamp, with the earlier one printed rather than dropped
+silently.
+
+**The generated section never needs adjudication** — it is a pure function of
+the queue, so a merge regenerates it instead of choosing a side.
 
 `--check` is what the Stop hook runs, so an agent is told before it finishes
 rather than the next morning.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -176,6 +197,113 @@ def retally(board_text: str) -> str:
     return board_text
 
 
+SECTION_RE = re.compile(
+    r'<section(?P<attrs>[^>]*)>(?P<body>.*?)</section>', re.S)
+STAMP_RE = re.compile(r'data-updated="([^"]*)"')
+ID_RE = re.compile(r'id="([^"]*)"')
+BY_RE = re.compile(r'data-by="([^"]*)"')
+
+
+def sections(text: str) -> dict:
+    """{id: (stamp, by, whole_block)} for every stamped section."""
+    out = {}
+    for m in SECTION_RE.finditer(text):
+        sid = ID_RE.search(m.group("attrs"))
+        if not sid:
+            continue
+        stamp = STAMP_RE.search(m.group("attrs"))
+        by = BY_RE.search(m.group("attrs"))
+        out[sid.group(1)] = (stamp.group(1) if stamp else "",
+                             by.group(1) if by else "?",
+                             m.group(0))
+    return out
+
+
+def touch(text: str, section_id: str, by: str, when: str = None) -> str:
+    """Move one section's stamp to now. Call it when you edit that section —
+    an edit whose stamp did not move is invisible to the merge, which is the
+    same as not having made it."""
+    when = when or datetime.now().strftime("%Y-%m-%dT%H:%M")
+    def sub(m):
+        found = ID_RE.search(m.group("attrs"))
+        if not found or found.group(1) != section_id:
+            return m.group(0)
+        attrs = STAMP_RE.sub(f'data-updated="{when}"', m.group("attrs"))
+        attrs = BY_RE.sub(f'data-by="{by}"', attrs)
+        return f"<section{attrs}>{m.group('body')}</section>"
+    return SECTION_RE.sub(sub, text)
+
+
+def merge(ours: str, theirs: str, handoffs: list[dict]) -> tuple[str, list[str]]:
+    """Resolve a republish conflict. Newest `data-updated` wins, per section.
+
+    Returns the merged page and a line per decision, because a merge nobody
+    can read is the same guess it replaces."""
+    mine, yours = sections(ours), sections(theirs)
+    notes, out = [], ours
+    for sid, (t_stamp, t_by, t_block) in yours.items():
+        if sid not in mine:
+            notes.append(f"  + {sid}: only in theirs ({t_by}) — kept")
+            out = out.replace("</main>", t_block + "\n</main>", 1)
+            continue
+        o_stamp, o_by, o_block = mine[sid]
+        if t_block == o_block:
+            continue
+        if t_stamp > o_stamp:
+            notes.append(f"  ~ {sid}: theirs is newer ({t_stamp} {t_by} "
+                         f"beats {o_stamp} {o_by}) — taking theirs")
+            out = out.replace(o_block, t_block, 1)
+        elif t_stamp < o_stamp:
+            notes.append(f"  = {sid}: ours is newer ({o_stamp} {o_by} "
+                         f"beats {t_stamp} {t_by}) — keeping ours")
+        else:
+            notes.append(f"  ! {sid}: SAME stamp {o_stamp}, different content. "
+                         f"Keeping ours; read theirs before republishing.")
+    for sid in mine:
+        if sid not in yours:
+            notes.append(f"  + {sid}: only in ours — kept")
+    return rebuild(out, handoffs), notes
+
+
+# A section edited without moving its stamp is invisible to `merge` — the same
+# as not having edited it, and the exact way this whole mechanism would quietly
+# stop working. So the last synced content of each section is recorded, and
+# `--check` says which ones changed without their stamp moving. The snapshot is
+# a cache, not a source: delete it and the next sync rewrites it.
+SNAPSHOT = VAULT / "05-Orchestrator" / "state" / "board-sections.json"
+
+
+def _digest(block: str) -> str:
+    return hashlib.sha256(block.encode("utf-8")).hexdigest()[:12]
+
+
+def snapshot(text: str) -> None:
+    SNAPSHOT.parent.mkdir(parents=True, exist_ok=True)
+    SNAPSHOT.write_text(json.dumps(
+        {sid: {"stamp": st, "by": by, "digest": _digest(block)}
+         for sid, (st, by, block) in sections(text).items()},
+        indent=2), encoding="utf-8")
+
+
+def unstamped_edits(text: str) -> list[str]:
+    """Sections whose content moved while their stamp stood still."""
+    if not SNAPSHOT.is_file():
+        return []
+    try:
+        was = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    out = []
+    for sid, (stamp, by, block) in sections(text).items():
+        old = was.get(sid)
+        if not old:
+            continue
+        if old["digest"] != _digest(block) and old["stamp"] == stamp:
+            out.append(f"  {sid}: content changed, stamp still {stamp} "
+                       f"(last set by {old['by']})")
+    return out
+
+
 def rebuild(board_text: str, handoffs: list[dict]) -> str:
     i = board_text.index(SECTION_START)
     j = board_text.index(SECTION_END, i)
@@ -185,6 +313,31 @@ def rebuild(board_text: str, handoffs: list[dict]) -> str:
 
 def main() -> None:
     check = "--check" in sys.argv
+
+    if "--stamps" in sys.argv:
+        for sid, (stamp, by, _) in sorted(
+                sections(BOARD.read_text(encoding="utf-8")).items(),
+                key=lambda kv: kv[1][0], reverse=True):
+            print(f"  {stamp:<17} {by:<28} {sid}")
+        print("\n  Newest change wins, per section. An edit whose stamp did not")
+        print("  move is invisible to a merge — which is the same as not making it.")
+        return
+
+    if "--merge" in sys.argv:
+        other = Path(sys.argv[sys.argv.index("--merge") + 1])
+        if not other.is_file():
+            print(f"no such file: {other}"); sys.exit(2)
+        merged, notes = merge(BOARD.read_text(encoding="utf-8"),
+                              other.read_text(encoding="utf-8"),
+                              open_handoffs(QUEUE.read_text(encoding="utf-8")))
+        print("merge — newest stamp wins, per section\n")
+        for n in notes or ["  nothing differed"]:
+            print(n)
+        BOARD.write_text(merged, encoding="utf-8")
+        snapshot(merged)
+        print("\nOpen Board merged. Read the lines above, then republish.")
+        return
+
     if not BOARD.is_file() or not QUEUE.is_file():
         print("board or queue missing — nothing to sync")
         return
@@ -192,16 +345,27 @@ def main() -> None:
     if SECTION_START not in board:
         print("board has no 'Waiting on project owners' section — not touching it")
         return
+    drifted = unstamped_edits(board)
     want = rebuild(board, open_handoffs(QUEUE.read_text(encoding="utf-8")))
-    if want == board:
+    if want == board and not drifted:
         print("Open Board is in sync with the queue.")
+        snapshot(board)
         return
+    if drifted:
+        print("SECTIONS EDITED WITHOUT MOVING THEIR STAMP:\n"
+              + "\n".join(drifted)
+              + "\n\n  The newest stamp decides a republish conflict, so an edit\n"
+                "  that did not move one cannot win and will be silently lost.\n"
+                "  Set data-updated to now and data-by to your tag.")
+        if check:
+            sys.exit(1)
     if check:
         print("OPEN BOARD IS OUT OF SYNC WITH THE QUEUE.\n"
               "  Run: python3 05-Orchestrator/jobs/sync_board.py\n"
               "  then republish it. The board is the page the owner reads.")
         sys.exit(1)
     BOARD.write_text(want, encoding="utf-8")
+    snapshot(want)
     print("Open Board resynced from the queue. Republish it.")
 
 

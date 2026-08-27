@@ -142,12 +142,12 @@ Update `05-Orchestrator/Queue.md` only if something needs another project or the
 
 ## Reporting back
 
-**The format lives in `<your-vault>/CLAUDE.md` → "How to talk to the owner", and only there.** Read it; do not rely on memory of it, and do not restate it here. In short: **five points maximum**, ordered — was it accomplished, is there a blocker, then what changes what they do next.
+**The format lives in `<your-vault>/CLAUDE.md` → "How to talk to the owner", and only there.** Read it; do not rely on memory of it, and do not restate it here. In short: **two or three lines**, ordered — was it accomplished, is there a blocker, then what changes what they do next. Longer only if they ask for it, and never on your own judgement.
 
 Two things are specific to this routine and belong here:
 
 - **Lead with anything broken.** A dead feed or a quarantined source is point one, ahead of counts.
-- **An uneventful run is two lines, not five points.** A routine that writes a long report about nothing stops being read.
+- **An uneventful run is one line.** A routine that writes a long report about nothing stops being read.
 
 ## Before you finish
 

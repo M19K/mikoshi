@@ -783,6 +783,86 @@ def check(vault):
                       f"it is what stops us re-adopting a weakness somebody "
                       f"already measured."))
 
+    # ---- routine-gap ----------------------------------------------------
+    # The daily routines write nothing on a day they do not run, and nothing
+    # notices — which is exactly how 2026-08-24 and 2026-08-25 passed with the
+    # whole daily machine dark, the machine itself up the entire time, and the
+    # gap only found by reading `pool-history.jsonl` by hand on the 26th.
+    #
+    # `pool-history.jsonl` is the right witness because it is the one file with
+    # a guaranteed once-a-day cadence written by exactly one routine, and
+    # because a missing day there is unrecoverable: OpenRouter's activity API
+    # reaches back 30 completed days, so a balance not written down on the day
+    # is a point on the drawdown curve that can never be reconstructed.
+    #
+    # This is a finding, not telemetry. A skipped routine is work that did not
+    # happen, unlike `quiet-project`, which is the owner working elsewhere.
+    # [@claude-code/maintenance · 2026-08-26]
+    hist = vault / "05-Orchestrator" / "ledger" / "pool-history.jsonl"
+    if hist.exists():
+        seen = set()
+        for line in hist.read_text(encoding="utf-8", errors="replace").splitlines():
+            m = re.search(r'"date":\s*"(\d{4}-\d{2}-\d{2})"', line)
+            if m:
+                seen.add(m.group(1))
+        if seen:
+            newest = max(seen)
+            # The snapshot is taken AFTER this check on a healthy run, so the
+            # newest date is normally yesterday. Two days back means a miss.
+            missing = []
+            d = today - timedelta(days=1)
+            first = date.fromisoformat(min(seen))
+            while d >= first and (today - d).days <= 14:
+                if d.isoformat() not in seen:
+                    missing.append(d.isoformat())
+                d -= timedelta(days=1)
+            if missing and date.fromisoformat(newest) < today - timedelta(days=1):
+                f.append(("routine-gap", "05-Orchestrator",
+                          f"no cost snapshot on {', '.join(sorted(missing))} — the "
+                          f"daily routines did not run on {'that day' if len(missing)==1 else 'those days'}. "
+                          f"Those points on the spend curve are gone for good: "
+                          f"OpenRouter only reaches back 30 completed days, so a "
+                          f"balance not written down on the day cannot be "
+                          f"reconstructed. Check that the scheduler is alive "
+                          f"rather than assuming the vault was simply quiet."))
+
+    # ---- queue-table-malformed ------------------------------------------
+    # `Queue.md` is the vault's only live channel and every table in it is
+    # read by an agent, not just by a person. A `|` inside a cell — a shell
+    # pipeline in a code span, a headline quoting `Product Owner | CSPO`, a
+    # copied Status column pasted into a 3-column table — silently shifts
+    # every cell to its right, and a renderer drops the overflow. Found by
+    # hand on 2026-08-26: sixteen rows were malformed and four of them showed
+    # `gh api ... --input -` where their Status should be, so H-047 had been
+    # sitting there **Open** with nothing on screen to say so.
+    #
+    # This is the failure the vault keeps calling out in its own products —
+    # a channel that looks healthy while carrying nothing. Structure only:
+    # it says a row is unreadable, never what a row should say.
+    # [@claude-code/maintenance · 2026-08-26]
+    queue_md = vault / "05-Orchestrator" / "Queue.md"
+    if queue_md.exists():
+        unescaped = re.compile(r"(?<!\\)\|")
+        section, header = None, None
+        for i, line in enumerate(queue_md.read_text(encoding="utf-8").splitlines(), 1):
+            if line.startswith("## "):
+                section, header = line[3:].strip(), None
+                continue
+            if not line.startswith("|"):
+                continue
+            if set(line.replace("|", "").replace("-", "").replace(":", "").strip()) == set():
+                continue          # the |---|---| separator row
+            n = len(unescaped.findall(line))
+            if header is None:
+                header = n
+            elif n != header:
+                cell = line.split("|")[1].strip()[:24] or f"line {i}"
+                f.append(("queue-table-malformed", f"Queue.md:{i}",
+                          f"row `{cell}` in *{section}* has {n} unescaped `|` "
+                          f"where the header has {header}. Cells are shifted, so "
+                          f"the rightmost column — usually Status — is not being "
+                          f"rendered. Escape any `|` inside the text as `\\|`."))
+
     return f
 
 def main():
