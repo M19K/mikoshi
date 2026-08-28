@@ -111,6 +111,28 @@ def proxy_up(port=8787):
         return False
 
 
+def own_exam(project):
+    """A product's own exam, which is where an exam belongs.
+
+    **[@owner · 2026-08-28] "Shouldn't the specific products do that when I run
+    QA on them?" Yes.** Four exams sat in delta's repo — `portfolio`,
+    `midscene-docs`, `gamma`, `beta` — built for products it does not own.
+    They are there because delta needed something to measure against
+    while it was being built, and nobody moved them afterwards.
+
+    **It is the same category error delta already names about itself:**
+    it ships a *method* aimed at your product, never a published table. The
+    builder is the method and belongs there. The screens, the planted faults
+    and the scores are the product's, and belong under the product, built by
+    that product's own QA run against its own use cases.
+
+    Read from the project rather than a list here, so a new product needs no
+    edit to this file.
+    """
+    exam = os.path.join(VAULT, "02-Projects", project, "QA", "exam")
+    return exam if os.path.isdir(exam) else None
+
+
 def gate_ever_fired(project):
     """Was this exam built by a version of the builder whose defect gate worked?
 
@@ -157,8 +179,9 @@ def decide(project):
             f"unchanged frame. Rebuild and re-score it, then this chooses on "
             f"evidence again")
         reasons.append(
-            f"to rebuild: cd {os.path.relpath(SR, VAULT)} && python3 "
-            f"golden/qa-vision/build_generic.py --origin <url> --name {project}")
+            f"to rebuild, into this project where it belongs: python3 "
+            f"{os.path.relpath(SR, VAULT)}/golden/qa-vision/build_generic.py "
+            f"--origin <url> --out 02-Projects/{project}/QA/exam")
         return dict(LOCAL, source="local default, measurement withdrawn"), reasons
     if rows:
         used = getattr(measured_for, "_set", None)
@@ -188,8 +211,9 @@ def decide(project):
             "held at all), so another product's table would be a guess here")
         if not stale:
             reasons.append(
-                f"to measure it: cd {os.path.relpath(SR, VAULT)} && python3 "
-                f"golden/qa-vision/build_generic.py --origin <url> --name {project}")
+                f"to measure it, from this project rather than from delta: "
+                f"python3 {os.path.relpath(SR, VAULT)}/golden/qa-vision/build_generic.py "
+                f"--origin <url> --out 02-Projects/{project}/QA/exam")
         return dict(LOCAL, source="local default, unmeasured"), reasons
 
     # Rank what was measured on this product by catch rate, then by cost.
