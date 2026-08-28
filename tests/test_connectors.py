@@ -303,3 +303,40 @@ def test_strict_status_does_not_fail_on_a_deliberate_off(tmp_path):
     p = _status(tmp_path, strict=True)          # drive has no scope → off
     assert p.returncode == 0, p.stdout
     assert "off" in p.stdout
+
+
+def test_a_source_can_be_declared_off_without_being_a_fault(state):
+    """**"Not a source" is a real answer.** Left as UNCONFIGURED it fails
+    --strict forever, and a check that fails daily for a reason nobody intends
+    to fix is a check people stop reading."""
+    state("email", [])
+    (connectors.STATE / "email" / "precondition.json").write_text(
+        '{"off": true, "why": "mail is not required here"}', encoding="utf-8")
+    h = connectors.health("email")
+    assert h["state"] == "off"
+    assert "not required" in h["why"]
+
+
+def test_strict_status_passes_with_a_source_declared_off(tmp_path):
+    for name in ("newsletters", "meetings"):
+        d = tmp_path / name
+        d.mkdir(parents=True)
+        (d / "run.json").write_text("[]", encoding="utf-8")
+    for name in ("email", "drive"):
+        d = tmp_path / name
+        d.mkdir(parents=True)
+        (d / "precondition.json").write_text('{"off": true, "why": "not a source"}',
+                                             encoding="utf-8")
+    p = _status(tmp_path, strict=True)
+    assert p.returncode == 0, p.stdout
+    assert p.stdout.count("off") >= 2
+
+
+def test_a_declared_decision_beats_an_inferred_default(state):
+    """Drive's local check says "no scope declared", which is right until
+    somebody decides. Once they have, that is the more accurate answer."""
+    d = connectors.STATE / "drive"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "precondition.json").write_text('{"off": true, "why": "declared not a source"}',
+                                         encoding="utf-8")
+    assert connectors.health("drive")["why"] == "declared not a source"

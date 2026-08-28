@@ -161,6 +161,14 @@ def _declared_precondition(name: str):
     except json.JSONDecodeError:
         return ("UNCONFIGURED", f"{PRECONDITION} is not readable JSON — the "
                                 f"routine wrote something it could not finish")
+    # **"Not a source" is a real answer, and it must not read as a fault.**
+    # [@owner · 2026-08-27] Mail can never match its label and Drive has no
+    # scope, and both were correct: the owner does not want either ingested.
+    # Left as UNCONFIGURED they fail `--strict` forever, and a check that
+    # fails every day for a reason nobody intends to fix is a check people
+    # stop reading. `{"off": true}` says the decision was made.
+    if data.get("off") is True:
+        return ("off", str(data.get("why") or "declared not a source"))
     if data.get("ok") is False:
         return ("UNCONFIGURED", str(data.get("why") or "the routine reported "
                                     "the precondition does not hold"))
@@ -183,8 +191,15 @@ PRECONDITIONS = {"drive": _drive_scope}
 
 def precondition(name: str):
     """(state, why) when this connector cannot work, else None."""
+    # **A stated decision beats an inferred default.** Drive's local check says
+    # "no scope declared", which is true and is the right thing to say until
+    # somebody decides; once the owner has declared it not a source, that is
+    # the more accurate answer and it wins.
+    declared = _declared_precondition(name)
+    if declared:
+        return declared
     local = PRECONDITIONS.get(name)
-    return (local(name) if local else None) or _declared_precondition(name)
+    return local(name) if local else None
 
 
 def health(name: str) -> dict:
