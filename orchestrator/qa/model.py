@@ -16,9 +16,10 @@ it needs no key and can run unattended. That is a fine reason to start and a bad
 reason to continue, because availability says nothing about whether the model
 can see a defect.
 
-Measured by `project-four` on 2026-08-22: the hosted model this lane can reach
-catches **55%** of deliberately planted screen defects, against **91%** for the
-reference. **A passing assertion from a model that misses nearly half of what it
+**Withdrawn 2026-08-27.** This paragraph used to quote 55% against 91% as the
+measured gap. That number came from the set worst affected by the defect gate
+that never fired, so it is not evidence and is not repeated here. `decide()`
+now refuses to cite any catch rate from a set built before the repair. **A passing assertion from a model that misses nearly half of what it
 is looking for is weak evidence**, and a missed defect is silent where a false
 alarm is loud. Running QA on a product you already suspect is flawed with that
 setup is the worst case for it.
@@ -27,12 +28,12 @@ setup is the worst case for it.
 
 **It never silently upgrades an unmeasured product to a paid model.** If this
 product has no measurement of its own, it says so, keeps the free local lane,
-and writes that into the run record — because project-four's own finding is that
+and writes that into the run record — because delta's own finding is that
 quality levels do not transfer between products (rank correlation 0.83 for
 judging, 0.49 for pointing, and every model dropped a median 22 points moving
 between two products). A table measured on somebody else's site is a guess here.
 
-**It never fails the run.** If project-four is absent, unmeasured or unreachable,
+**It never fails the run.** If delta is absent, unmeasured or unreachable,
 QA proceeds on the local default with a line in the record saying so. A QA
 protocol that cannot start because a routing layer is missing is worse than one
 that starts honestly.
@@ -44,7 +45,7 @@ import subprocess
 import sys
 
 VAULT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SR = os.path.join(VAULT, "02-Projects", "project-four", "code")
+SR = os.path.join(VAULT, "02-Projects", "delta", "code")
 
 # The lane as it stands: free, local, no credential, and unmeasured.
 #
@@ -62,10 +63,10 @@ LOCAL = {
 
 
 def measured_for(project):
-    """What project-four has actually measured on THIS product, if anything.
+    """What delta has actually measured on THIS product, if anything.
 
     A set is named by whoever built it, so `--name portfolio` and a project
-    folder called `project-three` are the same product with two spellings.
+    folder called `gamma` are the same product with two spellings.
     Exact match first, then a unique prefix — and the set actually used is
     always named in the reasons, because silently matching the wrong product's
     measurement is worse than finding none.
@@ -110,14 +111,55 @@ def proxy_up(port=8787):
         return False
 
 
+def gate_ever_fired(project):
+    """Was this exam built by a version of the builder whose defect gate worked?
+
+    **The failure this exists for, found 2026-08-27.** The builder ran ffmpeg's
+    `metadata=print` under `-v error`, and that line is written at *info* level,
+    so the comparison read an empty result on every call and fell through to
+    "everything changed" — the one answer that passes every check. **A gate that
+    cannot fail is not a gate**, and this one was the whole basis of the claim
+    that a planted defect is visible in the frame it is asserted about.
+    Retroactively: 17% of one set's cases assert a defect on a frame where
+    nothing changed, and every model was marked wrong for answering truthfully.
+
+    **So a catch rate from a set built before the fix is not evidence, and this
+    module's whole job is to hand somebody a catch rate as evidence.**
+
+    Derived, not hardcoded: the builder carries the fix, so a set whose
+    directory predates the builder's own mtime was built by the broken one.
+    Nothing here needs a date typed into it, and re-running the builder makes
+    the answer true by itself.
+    """
+    builder = os.path.join(SR, "golden", "qa-vision", "build_generic.py")
+    exam = os.path.join(SR, "golden", "qa-vision", "sets", project)
+    if not os.path.isfile(builder) or not os.path.isdir(exam):
+        return None                      # nothing to judge; say nothing
+    return os.path.getmtime(exam) >= os.path.getmtime(builder)
+
+
 def decide(project):
     """Returns (config, reasons). Never raises — QA must always be able to run."""
     reasons = []
     if not os.path.isdir(SR):
-        reasons.append("project-four is not present in this vault")
+        reasons.append("delta is not present in this vault")
         return dict(LOCAL, source="local default"), reasons
 
     rows = measured_for(project)
+    if rows and gate_ever_fired(project) is False:
+        # Refuse to cite the number rather than cite it with a caveat. A caveat
+        # beside a figure still leaves the figure in the run record, and the
+        # run record is read later by somebody who was not here.
+        reasons.append(
+            f"REFUSING the measured catch rates for '{project}': its exam was "
+            f"built before the defect gate was repaired on 2026-08-27, so every "
+            f"model was scored against cases that may assert a change on an "
+            f"unchanged frame. Rebuild and re-score it, then this chooses on "
+            f"evidence again")
+        reasons.append(
+            f"to rebuild: cd {os.path.relpath(SR, VAULT)} && python3 "
+            f"golden/qa-vision/build_generic.py --origin <url> --name {project}")
+        return dict(LOCAL, source="local default, measurement withdrawn"), reasons
     if rows:
         used = getattr(measured_for, "_set", None)
         if used and used != project:
@@ -134,11 +176,11 @@ def decide(project):
                 f"a set for '{used}' exists but has no comparable runs — they were "
                 f"quarantined because the exam version they sat cannot be identified")
             reasons.append(
-                f"re-score it rather than rebuilding: python3 -m project-four.evals "
+                f"re-score it rather than rebuilding: python3 -m delta.evals "
                 f"--set {used} --model <a> --model <b>")
         else:
             reasons.append(
-                f"no measurement exists for '{project}' — project-four has never "
+                f"no measurement exists for '{project}' — delta has never "
                 f"been pointed at it")
         reasons.append(
             "quality does not transfer between products (measured: every model "
@@ -172,15 +214,15 @@ def decide(project):
         f"planted defects ({ci[0]}-{ci[1]} at 95%), against {catch}% for the best "
         f"measured model")
     if proxy_up():
-        reasons.append("the project-four proxy is up, so the run goes through it "
+        reasons.append("the delta proxy is up, so the run goes through it "
                        "and every call is logged with its cost")
-        return {"model": "project-four/auto",
+        return {"model": "delta/auto",
                 "base_url": "http://host.docker.internal:8787/v1",
-                "key": "project-four-holds-its-own-key", "paid": True,
-                "source": "project-four proxy"}, reasons
+                "key": "delta-holds-its-own-key", "paid": True,
+                "source": "delta proxy"}, reasons
 
-    reasons.append("the project-four proxy is not running, so the model is named "
-                   "directly — start it with `python3 -m project-four.serve "
+    reasons.append("the delta proxy is not running, so the model is named "
+                   "directly — start it with `python3 -m delta.serve "
                    "--shadow 20` to get cost logging and drift detection")
 
     # **A local model that wins has to be returned as a local model.** The
@@ -193,13 +235,13 @@ def decide(project):
     # said the free lane was fine.
     if cheapest_good["model"].startswith("local/"):
         return dict(LOCAL, model=cheapest_good["model"][len("local/"):],
-                    source="project-four measurement — the free local lane, "
+                    source="delta measurement — the free local lane, "
                            "measured on this product and good enough"), reasons
 
     return {"model": cheapest_good["model"],
             "base_url": "https://openrouter.ai/api/v1",
             "key": os.environ.get("OPENROUTER_API_KEY", ""),
-            "paid": True, "source": "project-four measurement, direct"}, reasons
+            "paid": True, "source": "delta measurement, direct"}, reasons
 
 
 def main():

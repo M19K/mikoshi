@@ -2,7 +2,7 @@
 """
 verify_run.py — the gate. A QA run is not finished until this exits 0.
 
-**Why this exists.** The first universal-QA run, on project-three 2026-08-18, produced a
+**Why this exists.** The first universal-QA run, on gamma 2026-08-18, produced a
 confident report describing keyboard focus order, tab order and text selection —
 and its evidence directory contained **zero screenshots**, an **empty portfolio
 folder**, and nothing but `.json`, `.sse` and `.txt`. It had driven the app's

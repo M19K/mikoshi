@@ -11,7 +11,7 @@ build_junit_xml() writes the literal words "Runtime Failure" into the JUnit XML.
 That string is a parser complaint. It reads as a test result, and there is
 nothing else in the XML to tell the two apart.
 
-**Measured, not assumed.** project-three, 2026-08-19: 10 of 11 scenarios
+**Measured, not assumed.** gamma, 2026-08-19: 10 of 11 scenarios
 lost this way, every one of which the agent had actually driven to completion
 and judged. The 11th did not emit the prefix, and its XML carries a full,
 correct, quoted verdict.

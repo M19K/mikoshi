@@ -81,7 +81,7 @@ def main():
     # Fix one orphan without touching the others. vault_check reports orphans one
     # note at a time, but --apply wrote to every under-linked note at once — so
     # repairing a single 00-Inbox capture also appended a Related section to
-    # `the owner Profile.md`, a curated file no routine should be editing. Substring
+    # `Owner Profile.md`, a curated file no routine should be editing. Substring
     # match on the note path. [@claude-code/maintenance · 2026-08-16]
     ap.add_argument("--only", help="restrict to note paths containing this substring")
     a = ap.parse_args()
@@ -92,7 +92,7 @@ def main():
         # script was almost certainly started with the system python3. "pip install
         # sqlite-vec" sent readers off to reinstall a package they already had.
         # Name the interpreter that works. [@claude-code/maintenance · 2026-08-16]
-        venv = VAULT / "02-Projects/project-four/code/tools/.venv/bin/python3"
+        venv = VAULT / "02-Projects/delta/code/tools/.venv/bin/python3"
         if venv.exists():
             sys.exit(f"sqlite-vec is not loaded — this needs the funnel's venv:\n"
                      f"  {venv} {' '.join(sys.argv)}")

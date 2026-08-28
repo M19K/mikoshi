@@ -127,7 +127,7 @@ CASES = [
     # --- deliberately absent, and HARD ---------------------------------------
     # Rewritten 2026-08-21 after H-028. The first version asked about a shoe
     # size, a Frankfurt cluster and a shareholder meeting — absurd on their
-    # face, so refusing them measured nothing. project-four hit the same fault
+    # face, so refusing them measured nothing. delta hit the same fault
     # from the other side: their faithful cases were the source verbatim, which
     # asks "is this passage supported by itself", and a whole axis measured
     # nothing. The honest test of honesty is a question that is plausible,
@@ -145,7 +145,7 @@ def fingerprint(cases) -> str:
 
     **Runs from different sets are not comparable, and the table in the README
     already made that mistake** — it put a 12-question run beside a 30-question
-    one in the same column. project-four hit the identical fault harder: their
+    one in the same column. delta hit the identical fault harder: their
     routing table preferred a model measured on 90 easy cases over one measured
     on 592, because nothing recorded which exam a score came from. A run without
     this stamp is `unknown`, never assumed current. [H-028 · 2026-08-21]"""

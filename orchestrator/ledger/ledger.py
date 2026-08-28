@@ -3,8 +3,8 @@
 ledger.py — what each product costs, including its share of the shared pools.
 
 **The gap this closes.** The Infrastructure Ledger answered "what do we pay for"
-and "how does each platform bill". It could not answer *"what does project-three cost"*,
-because the answer is partly a subscription that is clearly project-three's and partly a
+and "how does each platform bill". It could not answer *"what does gamma cost"*,
+because the answer is partly a subscription that is clearly gamma's and partly a
 slice of one OpenRouter balance that four products draw on. A single prepaid
 balance with four consumers is not a cost you can read off a bill; it has to be
 attributed. [@owner · 2026-08-20]

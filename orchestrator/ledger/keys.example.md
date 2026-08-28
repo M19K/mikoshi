@@ -11,7 +11,7 @@ label it does not recognise is reported rather than guessed at.
 - `#` comments and blank lines are ignored. Anything not `label: value` is ignored.
 
 **The label is the routing key.** For a product it is the project's folder name
-exactly — `project-three`, not `project-three` or `project-three-app`. That exactness is the whole point:
+exactly — `gamma`, not `gamma` or `gamma-app`. That exactness is the whole point:
 an agent resolves its key from `pwd`, so a label that does not match a folder is
 a key nobody will ever find.
 
@@ -26,19 +26,19 @@ a key nobody will ever find.
 
 ## OpenRouter
 
-- project-three: sk-or-v1-REPLACE
-- project-four: sk-or-v1-REPLACE
-- project-two: sk-or-v1-REPLACE
-- project-three: sk-or-v1-REPLACE
+- gamma: sk-or-v1-REPLACE
+- delta: sk-or-v1-REPLACE
+- beta: sk-or-v1-REPLACE
+- gamma: sk-or-v1-REPLACE
 - mikoshi-internal: sk-or-v1-REPLACE
 - owner-personal: sk-or-v1-REPLACE
 - management: sk-or-v1-REPLACE
 
 ## Hume
 
-- project-three-api: REPLACE
-- project-three-secret: REPLACE
+- gamma-api: REPLACE
+- gamma-secret: REPLACE
 
 ## OpenAI
 
-- project-three: sk-REPLACE
+- gamma: sk-REPLACE

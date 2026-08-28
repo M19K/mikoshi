@@ -51,7 +51,7 @@ for _s in (_sys.stdout, _sys.stderr):
 
 HERE = pathlib.Path(__file__).resolve().parent
 VAULT = HERE.parent
-VENV = VAULT / "02-Projects/project-four/code/tools/.venv/bin/python3"
+VENV = VAULT / "02-Projects/delta/code/tools/.venv/bin/python3"
 PROTOCOL_VERSION = "2024-11-05"
 
 TOOLS = [

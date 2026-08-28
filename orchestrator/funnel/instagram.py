@@ -36,7 +36,7 @@ import sys
 
 from . import fetch, registry, store
 
-INGEST_SH = store.VAULT / "02-Projects/project-four/code/tools/ingest.sh"
+INGEST_SH = store.VAULT / "02-Projects/delta/code/tools/ingest.sh"
 MEDIA = store.ORCH / "state" / "instagram"
 
 # Instagram rate-limits hard and answers with a login redirect rather than an

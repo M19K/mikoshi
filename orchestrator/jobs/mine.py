@@ -2,7 +2,7 @@
 """
 mine.py — "what is open for me?", answered deterministically in a few lines.
 
-**Why this exists.** On 2026-08-20 the `project-three` thread was refreshed,
+**Why this exists.** On 2026-08-20 the `gamma` thread was refreshed,
 reported *"no open handoffs for my tag, board in sync, and the site's chat key
 already comes from its own labelled entry"*, and every one of those claims was
 false: two handoffs were open and addressed to it, and `serve.py` still read the
@@ -20,8 +20,8 @@ A false all-clear is worse than no refresh at all, because it closes the
 question. So the refresh no longer asks anyone to read the queue and judge —
 it asks this, which greps and cannot be truncated into a wrong answer.
 
-    python3 05-Orchestrator/jobs/mine.py @claude-code/project-three
-    python3 05-Orchestrator/jobs/mine.py project-three     # tag optional
+    python3 05-Orchestrator/jobs/mine.py @claude-code/gamma
+    python3 05-Orchestrator/jobs/mine.py gamma     # tag optional
     python3 05-Orchestrator/jobs/mine.py --all                 # every open item
 
 Exit 0 = nothing owed. Exit 1 = you owe something. **Trust the exit code, not
@@ -47,8 +47,8 @@ def clean(s: str) -> str:
 
 def tag_matches(cell: str, who: str) -> bool:
     """A tag matches if the project name matches. Deliberately loose on the
-    prefix: a thread may know itself as `project-three` or as
-    `@claude-code/project-three`, and being wrong about which is not a
+    prefix: a thread may know itself as `gamma` or as
+    `@claude-code/gamma`, and being wrong about which is not a
     reason to miss work addressed to you."""
     cell, who = clean(cell).lower(), clean(who).lower().lstrip("@")
     who = who.split("/")[-1]

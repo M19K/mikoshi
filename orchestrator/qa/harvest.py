@@ -11,7 +11,7 @@ the pixels were all there and the answer was missing.
 
 **And it repairs the answers upstream throws away.** Hercules writes the literal
 string "Runtime Failure" into the XML whenever it cannot parse the planner's
-final reply — not when a scenario fails. On project-three, 2026-08-19, that
+final reply — not when a scenario fails. On gamma, 2026-08-19, that
 took 10 of 11 completed, judged scenarios and rendered them causeless. The
 verdicts were never lost; they sat in the container log, one JSON object each.
 So this reads the log whenever the XML says "Runtime Failure", recovers the real

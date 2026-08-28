@@ -3,7 +3,7 @@
 calibration.py — was the confidence honest?
 
     python3 -m synth.calibration                    # every project
-    python3 -m synth.calibration --project project-three
+    python3 -m synth.calibration --project gamma
     python3 -m synth.calibration --due              # what is checkable now
 
 **The gap this closes, and the honest size of it.** Decisions and learnings are

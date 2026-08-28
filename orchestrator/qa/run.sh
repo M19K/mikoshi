@@ -31,12 +31,12 @@ PDIR="$VAULT/02-Projects/$PROJECT"
 [ -d "$PDIR" ] || { echo "no such project: $PROJECT"; exit 2; }
 
 # ── which model judges this product ──────────────────────────────────────────
-# Asked, not assumed. `model.py` reads what project-four has measured ON THIS
+# Asked, not assumed. `model.py` reads what delta has measured ON THIS
 # PRODUCT and picks accordingly; where nothing has been measured it keeps the
 # free local lane and says so, because quality does not transfer between
 # products and another product's table would be a guess here.
 #
-# It never fails: if project-four is absent, unmeasured or not running, QA
+# It never fails: if delta is absent, unmeasured or not running, QA
 # proceeds on the local default with that fact written into the run record. A
 # QA protocol that cannot start because a routing layer is missing is worse
 # than one that starts honestly.
@@ -49,7 +49,7 @@ fi
 MODEL="${MODEL:-gpt-oss:20b}"
 BASE_URL="${BASE_URL:-http://host.docker.internal:11434/v1}"
 KEY="${LLM_KEY:-ollama}"
-QA_MODEL_SOURCE="${QA_MODEL_SOURCE:-default, project-four not consulted}"
+QA_MODEL_SOURCE="${QA_MODEL_SOURCE:-default, delta not consulted}"
 IMAGE="${IMAGE:-mikoshi/hercules}"
 LOAD_EXTRA_TOOLS="${LOAD_EXTRA_TOOLS:-true}"
 SCENARIO_TIMEOUT="${SCENARIO_TIMEOUT:-1200}"

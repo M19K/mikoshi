@@ -256,7 +256,7 @@ def _identifiers_from(vault: pathlib.Path) -> list:
             ids.update(json.loads(reg.read_text(encoding="utf-8"))["products"].keys())
         except Exception:
             pass
-    for f in ("the owner Profile.md", "CLAUDE.md", "Home.md"):
+    for f in ("Owner Profile.md", "CLAUDE.md", "Home.md"):
         p = vault / f
         if not p.is_file():
             continue

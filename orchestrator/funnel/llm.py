@@ -10,13 +10,13 @@ private, no credential anywhere.
 harmony-format model and raw prompt mode returns its scratchpad instead of an
 answer. `think: "low"` keeps latency down.
 
-**The second route is project-four** — an OpenAI-compatible endpoint running on
+**The second route is delta** — an OpenAI-compatible endpoint running on
 this machine that picks, per call, the model measured to hold quality on that
 task rather than one hardcoded here:
 
-    python3 -m project-four.serve --port 8787            # in another shell
+    python3 -m delta.serve --port 8787            # in another shell
     export MIKOSHI_LLM_BASE_URL=http://localhost:8787/v1
-    export MIKOSHI_LLM_MODEL=project-four/text-faithful  # or project-four/auto
+    export MIKOSHI_LLM_MODEL=delta/text-faithful  # or delta/auto
 
 **Why this exists, measured 2026-08-22.** The local model is good at this work
 when it answers — 97% of planted falsehoods caught, no false alarms — but it
@@ -26,7 +26,7 @@ hundredths of a cent per call. Free and cheap are not the same thing.
 
 **Costing a run is not this file's job.** The router logs task, model, cost and
 latency for every call it serves, which is what turns a predicted saving into a
-measured one — see `project-four.shadow`.
+measured one — see `delta.shadow`.
 
 Every caller must survive `None`. A model that is down degrades the caller to
 its deterministic path; it never takes the run down.
@@ -46,7 +46,7 @@ MODEL = os.environ.get("MIKOSHI_LOCAL_MODEL", "gpt-oss:20b")
 # local Ollama, which is the default on purpose: switching to a paid route is a
 # money decision and money decisions are never a default.
 BASE_URL = (os.environ.get("MIKOSHI_LLM_BASE_URL") or "").rstrip("/")
-REMOTE_MODEL = os.environ.get("MIKOSHI_LLM_MODEL") or "project-four/auto"
+REMOTE_MODEL = os.environ.get("MIKOSHI_LLM_MODEL") or "delta/auto"
 
 # Headroom above what the caller asked for, in output tokens.
 #
@@ -79,7 +79,7 @@ def where() -> str:
 
 
 def _key():
-    """Only needed when the endpoint is not on this machine. project-four runs
+    """Only needed when the endpoint is not on this machine. delta runs
     locally and holds its own upstream key — that is the point of it: the
     credential stays in one process instead of being copied per caller.
 
@@ -167,7 +167,7 @@ def chat(prompt: str, system: str = "", *, as_json: bool = True,
             # routed call, on the grounds that it was 6x cheaper, 5.75x faster
             # and returned a real answer where `effort: low` had starved the
             # output. All of that is true and none of it made it free:
-            # project-four re-measured the same exam at both settings and
+            # delta re-measured the same exam at both settings and
             # **catch fell 94→90 on qwen3.7-flash, 100→67 and 100→84 on two
             # others.** It was not waste; it was doing the work.
             #

@@ -10,7 +10,7 @@ pins every claim to a line you can open.** It runs entirely on a local model.
 
 ```bash
 python3 -m synth.answer "why is there one API key per product"
-python3 -m synth.answer "what is blocking this" --scope project-one
+python3 -m synth.answer "what is blocking this" --scope alpha
 python3 -m synth.decisions "macos keychain"     # what was this option's fate?
 python3 -m synth.evals                          # is it still trustworthy?
 ```
@@ -70,7 +70,7 @@ day, so the last column is the one to quote.
 | cost | $0 | $0.0088 |
 
 **Then measured again with the model thinking, 2026-08-22 — same model, same
-set, one variable**, after project-four found that switching reasoning off cost
+set, one variable**, after delta found that switching reasoning off cost
 catch rate materially on *their* task:
 
 | | thinking off | thinking on |
@@ -87,7 +87,7 @@ noise floor — so thinking did **not** make the answers more accurate here, and
 quoting those as differences would be quoting noise. What it changed is the
 single case that matters: **with thinking off the layer answered a question the
 vault does not hold; with it on, it declined.** That is worth 8× the wall time
-only because not inventing is the entire claim. **Opposite shape to project-four's
+only because not inventing is the entire claim. **Opposite shape to delta's
 result on their judging task — so the effect of reasoning is per-task, and a
 global setting for it is a guess wearing a measurement's clothes.**
 
@@ -143,7 +143,7 @@ claims.
 **One number of mine did not survive this run.** `backed` on the all-on
 configuration read 82% two hours earlier and 94% here, same model, same set —
 12 points, far outside the ±2 noise floor I had been quoting. **That ±2 came
-from project-four's classification task, not from this metric**, and carrying it
+from delta's classification task, not from this metric**, and carrying it
 across was exactly the mistake this project has recorded twice: a level measured
 on one task does not transfer to another. `backed`'s own noise floor is not
 known, and until it is, differences in that column under about 12 points are
@@ -179,7 +179,7 @@ was too small to separate a code change from Ollama's non-determinism at
 temperature 0. At thirty it lands at 67%, close to the 70% the small set was
 hovering around — so the earlier swings were the measurement, not the system.
 **That last sentence was an inference and is now being measured directly:**
-project-four's 592-case faithfulness set is being run twice against this vault on
+delta's 592-case faithfulness set is being run twice against this vault on
 the same local model, and the case-by-case agreement between two identical runs
 is the noise floor every score here should be quoted against.
 

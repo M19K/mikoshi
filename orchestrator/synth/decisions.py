@@ -22,7 +22,7 @@ reason. Today that only happens if someone remembers. Re-proposing something
 already refused is the single most common way this vault wastes the owner's time.
 
     python3 -m synth.decisions "keychain"
-    python3 -m synth.decisions "hermes" --project project-four
+    python3 -m synth.decisions "hermes" --project delta
 """
 import json
 import pathlib

@@ -28,7 +28,7 @@
    "note": "One balance, several products. Exact per-product spend needs one API key per product plus a management key to read /api/v1/activity?api_key_hash=. Until that exists, attribution falls back to what each project recorded itself in Costs.jsonl, and the difference from the pool total is reported as unattributed rather than spread.",
    "known_non_product_keys": {
     "MCP: OpenRouter MCP: Claude": "Auto-created by OpenRouter when the connector was added to Claude Code, 2026-08-20. $0.000 used because the connector's reads (credits, models, docs) are free. EXPIRES 2026-08-27 — the connector stops working that day unless renewed. Leave it alone; it is not a product key. But if the connector is ever used to GENERATE (send-message, generate-image), that spend bills here and will show as unattributed, so check this row before blaming a product. The expiry CANNOT be removed or extended: it is set when the OAuth flow mints the key, and PATCH /keys/{hash} accepts name, limit, limit_reset and disabled but has no expires_at field. OpenRouter's MCP server (mcp.openrouter.ai/mcp) only supports OAuth, not API-key headers, so there is no permanent-connection variant. Re-auth with `claude mcp login openrouter` — one command, config is preserved. Nothing in the ledger depends on it: the balance is read with the `management` key, which never expires.",
-    "Default key": "RETIRED 2026-08-20 by the owner. The original shared key: $25.27 drawn across four products, which is the entire unattributed balance and always will be — deleting the key does not recover attribution, and OpenRouter's activity history only reaches back 30 days. Its $25.27 stays in the account total and is the permanent cost of having started with one key. Two projects were still reading it when it died: project-three (code/site/secrets.json, H-024) and project-one (OPENROUTER_API_KEY, H-025)."
+    "Default key": "RETIRED 2026-08-20 by the owner. The original shared key: $25.27 drawn across four products, which is the entire unattributed balance and always will be — deleting the key does not recover attribution, and OpenRouter's activity history only reaches back 30 days. Its $25.27 stays in the account total and is the permanent cost of having started with one key. Two projects were still reading it when it died: gamma (code/site/secrets.json, H-024) and alpha (OPENROUTER_API_KEY, H-025)."
    },
    "attribution_baseline": "2026-08-20: per-product keys issued. Everything drawn BEFORE this date is unattributable by construction; everything after is attributable by key. Do not try to reconcile the $25.27 — treat it as opening balance.",
    "opening_balance_usd": 25.267906686
@@ -37,7 +37,7 @@
    "label": "Hume AI",
    "billing": "subscription plus usage allowance",
    "attribution": "dedicated key",
-   "note": "CASEY only. Two keys — API key and secret — labelled project-three-api and project-three-secret."
+   "note": "CASEY only. Two keys — API key and secret — labelled gamma-api and gamma-secret."
   },
   "openai": {
    "label": "OpenAI",
@@ -47,7 +47,7 @@
   }
  },
  "products": {
-  "project-three": {
+  "gamma": {
    "display": "CASEY",
    "status": "live, dormant",
    "subscriptions": [
@@ -71,7 +71,7 @@
      "monthly_usd": 3.0,
      "period_ends": "2026-09-15",
      "note": "allowance 5 to 40 min/mo",
-     "source": "project-three/Decisions.jsonl 2026-08-17"
+     "source": "gamma/Decisions.jsonl 2026-08-17"
     },
     {
      "service": "Vercel",
@@ -114,13 +114,13 @@
    ],
    "keys": {
     "hume": [
-     "project-three-api",
-     "project-three-secret"
+     "gamma-api",
+     "gamma-secret"
     ],
-    "openai": "project-three"
+    "openai": "gamma"
    }
   },
-  "project-three": {
+  "gamma": {
    "display": "Portfolio website",
    "status": "in build",
    "subscriptions": [
@@ -143,11 +143,11 @@
    ],
    "pool_note": "Powers the site's chat. Holds the key the other three products borrowed.",
    "keys": {
-    "openrouter": "project-three"
+    "openrouter": "gamma"
    }
   },
-  "project-four": {
-   "display": "project-four",
+  "delta": {
+   "display": "delta",
    "status": "in build",
    "subscriptions": [],
    "pools": [
@@ -155,11 +155,11 @@
    ],
    "pool_note": "Model-comparison ladders. Reads the same key from the environment rather than duplicating the secret.",
    "keys": {
-    "openrouter": "project-four"
+    "openrouter": "delta"
    }
   },
-  "project-three": {
-   "display": "project-three",
+  "gamma": {
+   "display": "gamma",
    "status": "in build",
    "subscriptions": [
     {
@@ -174,11 +174,11 @@
    ],
    "pool_note": "Bring-your-own-key for Anthropic / OpenAI / OpenRouter. [@owner 2026-08-20] confirmed OpenRouter is the route in use.",
    "keys": {
-    "openrouter": "project-three"
+    "openrouter": "gamma"
    }
   },
-  "project-two": {
-   "display": "project-two",
+  "beta": {
+   "display": "beta",
    "status": "shipped",
    "subscriptions": [],
    "pools": [
@@ -186,10 +186,10 @@
    ],
    "pool_note": "Model routing in the shipped macOS app. The ledger recorded this as the Anthropic API direct; [@owner 2026-08-20] corrected it to OpenRouter.",
    "keys": {
-    "openrouter": "project-two"
+    "openrouter": "beta"
    }
   },
-  "project-one": {
+  "alpha": {
    "display": "Pacific Technology website",
    "status": "client build",
    "subscriptions": [
@@ -209,21 +209,21 @@
    ],
    "pools": []
   },
-  "project-one": {
+  "alpha": {
    "display": "Course distiller",
    "status": "active",
    "subscriptions": [],
    "pools": [],
    "note": "local Python + Ollama"
   },
-  "project-two": {
+  "beta": {
    "display": "PM extraction",
    "status": "active",
    "subscriptions": [],
    "pools": [],
    "note": "local Whisper + Ollama"
   },
-  "project-one": {
+  "alpha": {
    "display": "Job search",
    "status": "active",
    "subscriptions": [],
@@ -231,11 +231,11 @@
     "openrouter"
    ],
    "keys": {
-    "openrouter": "project-one"
+    "openrouter": "alpha"
    },
    "note": "documents and pipeline, no hosting. Four launchd agents run unattended on this Mac (sweep and evaluate every 6h, prepare daily, replies every 30min) and `evaluate` is the spending one: `openrouter-runner.mjs pipeline` scores every pending role, measured 2026-08-21 at $0.0033 a role. The key label was missing here until 2026-08-21, so its spend was counted as a non-product key and never named in `reconcile`."
   },
-  "project-four": {
+  "delta": {
    "display": "Product portfolio",
    "status": "active",
    "subscriptions": [],
@@ -243,12 +243,12 @@
     "openrouter"
    ],
    "note": "GitHub, plus opt-in routed inference for measurement runs",
-   "pool_note": "The synthesis layer and the funnel run on a local model by default and cost nothing. From 2026-08-22 they can be routed through project-four's proxy onto this pool by setting MIKOSHI_LLM_BASE_URL — opt-in per run, never a default, because switching to a paid route is a money decision. First such run the same day: $0.062 for a 30-question quality eval.",
+   "pool_note": "The synthesis layer and the funnel run on a local model by default and cost nothing. From 2026-08-22 they can be routed through delta's proxy onto this pool by setting MIKOSHI_LLM_BASE_URL — opt-in per run, never a default, because switching to a paid route is a money decision. First such run the same day: $0.062 for a 30-question quality eval.",
    "keys": {
     "openrouter": "mikoshi-internal"
    }
   },
-  "project-two": {
+  "beta": {
    "display": "Mikoshi console",
    "status": "in build",
    "subscriptions": [],

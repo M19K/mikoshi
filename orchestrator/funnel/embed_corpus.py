@@ -23,9 +23,11 @@ VAULT = store.VAULT
 # embedding space they are near-duplicates that cluster close to any query and
 # crowd out the note that actually answers it. Reach an entity by its name
 # (exact match, which is how it was built), not by similarity. [2026-08-16]
-SKIP_DIRS = (".obsidian", ".git", ".claude", "code", "03-Archive", "state",
-             "staged", "digests", "Entities")
-SKIP_STEMS = {"CLAUDE", "README", "AGENTS", "GEMINI"}
+# `SKIP_DIRS` and `SKIP_STEMS` lived here and were dead: nothing has read
+# them since `notes()` began delegating to `store.searchable`, which is the
+# one definition both retrievers use. Removed 2026-08-27 rather than left
+# 'available' — a constant kept alive by nothing is a thing the next reader
+# has to disprove. [H-057]
 
 
 def notes():
@@ -35,8 +37,8 @@ def notes():
 
 def title_of(path: pathlib.Path, text: str) -> str:
     # A `#` inside a fenced block is a shell comment, not a heading. Reading one
-    # as an H1 gave `project-four/Live Status.md` the title "then the same for
-    # project-two, then:" and wrote it as the display text of a wikilink.
+    # as an H1 gave `delta/Live Status.md` the title "then the same for
+    # beta, then:" and wrote it as the display text of a wikilink.
     fenced = False
     for line in text.splitlines():
         if line.lstrip().startswith("```"):

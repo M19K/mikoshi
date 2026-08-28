@@ -20,14 +20,14 @@ fingerprint only. If you are tempted to print a key to debug, print
 `fingerprint()` instead.
 
     python3 -m ledger.keys status                 # what is present, no values
-    python3 -m ledger.keys which project-three            # which label a project gets
-    python3 -m ledger.keys which --qa project-three       # same, for a QA run
+    python3 -m ledger.keys which gamma            # which label a project gets
+    python3 -m ledger.keys which --qa gamma       # same, for a QA run
     python3 -m ledger.keys check                  # every product resolves?
 
 In code:
 
     from ledger.keys import resolve
-    key = resolve("openrouter", project="project-three")
+    key = resolve("openrouter", project="gamma")
 """
 import argparse
 import hashlib
@@ -60,10 +60,10 @@ ALIASES = {
     "mikoshi-management": ("openrouter", "management"),
     "openrouter-management": ("openrouter", "management"),
     "management": ("openrouter", "management"),
-    "open-ai-key": ("openai", "project-three"),
-    "openai-key": ("openai", "project-three"),
-    "hume-api-key": ("hume", "project-three-api"),
-    "hume-secret-key": ("hume", "project-three-secret"),
+    "open-ai-key": ("openai", "gamma"),
+    "openai-key": ("openai", "gamma"),
+    "hume-api-key": ("hume", "gamma-api"),
+    "hume-secret-key": ("hume", "gamma-secret"),
 }
 
 # A label whose value never arrives — a section heading written as "For CASEY:".
@@ -183,8 +183,8 @@ def which(project: str = None, *, qa: bool = False, internal: bool = False) -> s
     """The label a caller is entitled to. The routing rule, in one function.
 
     [@owner · 2026-08-20] **QA bills the product under test**, not a shared
-    bucket — `run.sh` already takes the project name, so a project-three QA run is a cost
-    of building project-three, and folding it into `mikoshi-internal` would make that the
+    bucket — `run.sh` already takes the project name, so a gamma QA run is a cost
+    of building gamma, and folding it into `mikoshi-internal` would make that the
     largest line while saying nothing about which product is expensive.
     **Ingestion and vault tooling bill `mikoshi-internal`**: they are vault-wide
     and belong to no product."""
@@ -290,7 +290,7 @@ def cmd_check(_):
         for pool in p.get("pools", []):
             # The registry is the authority on a product's labels. Guessing from
             # the folder name reported CASEY's Hume keys as missing when they are
-            # present under `project-three-api` and `-secret`.
+            # present under `gamma-api` and `-secret`.
             declared = (p.get("keys") or {}).get(pool)
             labels = ([declared] if isinstance(declared, str)
                       else declared or [which(name)])

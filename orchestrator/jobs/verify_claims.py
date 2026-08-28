@@ -146,7 +146,7 @@ def main():
             # Real cells write "merged (PR #13, `19b7de4`)" — the SHA with no
             # repo beside it, because the repo is obvious to the writer from
             # who the handoff was addressed to. So infer it the same way: the
-            # target tag `@claude-code/project-two` names the project, and the
+            # target tag `@claude-code/beta` names the project, and the
             # project folder name is the repo name. Written after this checker
             # reported a clean 0/0 on a queue that contained a real SHA and a
             # known-bad one — a checker that matches nothing always passes.

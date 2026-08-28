@@ -6,7 +6,7 @@ point it does ship (`ADDITIONAL_TOOL_DIRS`). Nothing is forked for this.
 open/click/hover/entertext/select/slider/upload/get_*/press_key_combination —
 so the only way it can scroll is to press PageDown or End, and a key-press
 scroll only works when focus is already on a scrollable element. On
-`project-three`, 2026-08-19, it pressed PageDown **30 times** and End
+`gamma`, 2026-08-19, it pressed PageDown **30 times** and End
 **18 times** and moved the page **zero pixels**. That site gates its entire
 interactive surface behind 99% scroll progress, so all ten failures in an
 eleven-scenario run were downstream of one scroll that never happened, and the

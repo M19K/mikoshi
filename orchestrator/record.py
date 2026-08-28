@@ -5,7 +5,7 @@ record.py — write down what the owner said, and what an agent learned, as it h
 **The problem this fixes.** Mikoshi's log is past tense and outcome-only: an
 agent writes what it did, in prose, at the end. So the *inputs* vanish — the
 options weighed, the preference stated, the reason one was rejected. A
-project-three session on 2026-08-16 lost an entire A/B/C conversation
+gamma session on 2026-08-16 lost an entire A/B/C conversation
 exactly this way, and said so plainly: "I record what I did, not what you said
 and preferred."
 
@@ -29,16 +29,16 @@ one is written. [added 2026-08-23]
 Write the moment it happens, not at the end of the session. A session that ends
 early still keeps everything recorded up to that point.
 
-    ./record.py decision project-three \\
+    ./record.py decision gamma \\
         --chose "vertical layout" --over "horizontal,grid" \\
         --why "wanted the journey to read top to bottom"
 
-    ./record.py learning project-four \\
+    ./record.py learning delta \\
         --key whole-note-embeddings-are-averaged \\
         --insight "One vector for a 15KB note points at nothing in particular." \\
         --files funnel/store.py --confidence 9
 
-    ./record.py show project-three
+    ./record.py show gamma
 """
 import argparse
 import datetime as dt

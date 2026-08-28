@@ -7,7 +7,7 @@ The backend loop from `05-Orchestrator/_index.md`, built against the registry in
 Nothing leaves the machine and there is no server to babysit.
 
 ```bash
-V=02-Projects/project-four/code/tools/.venv/bin/python   # from the vault root
+V=02-Projects/delta/code/tools/.venv/bin/python   # from the vault root
 cd 05-Orchestrator
 
 $V -m funnel.run                    # daily run — stages entries, writes a digest

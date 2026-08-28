@@ -131,7 +131,7 @@ def examples() -> str:
     if not sig or not noi:
         # One-sided examples teach the model to answer one way. A set with no
         # counter-examples is worse than none — this is the same fault that
-        # made project-four's first golden set separate nobody.
+        # made delta's first golden set separate nobody.
         return ""
 
     def fmt(rs):

@@ -63,7 +63,7 @@ Then, once a feature phase has produced verdicts:
 ## Why nothing in it is ours
 
 Three attempts came before this one. The first was a hand-written procedure that
-reimplemented what already existed; on its first real use, on project-three, it wrote a
+reimplemented what already existed; on its first real use, on gamma, it wrote a
 confident report about keyboard focus and tab order from **zero screenshots**,
 having driven the app's HTTP API and never opened the window. The second wrapped
 `gstack /qa`. The third searched GitHub — which is what should have happened
@@ -122,7 +122,7 @@ reading *"Ask me about anything."* `run.sh` now sets `LOAD_EXTRA_TOOLS=true`.
 so the vision tool loads and returns nothing useful. Use a multimodal model, or
 do not write a Gherkin step about pixels.
 
-**Verified end to end 2026-08-19 on a real product.** `project-three`,
+**Verified end to end 2026-08-19 on a real product.** `gamma`,
 `uc-01-arrive`, the scenario that had failed with *"no photograph detected after
 comprehensive inspection"*: re-run with the patch and vision on, it **passes**,
 its verdict parses without salvage, and `visual_validations/` holds the frame
@@ -155,7 +155,7 @@ Sloppy expectations produce false failures.
 
 **Hercules cannot scroll a page with key presses, and on a scroll-gated page
 that means it tests the header and nothing else.** [2026-08-19] On
-`project-three` it pressed PageDown thirty times and End eighteen times and
+`gamma` it pressed PageDown thirty times and End eighteen times and
 moved the page **zero pixels** — a key-press scroll needs focus on a scrollable
 element and it never established one. Every one of that run's ten failures is
 downstream of that single failed scroll, because the site's whole interactive
@@ -309,7 +309,7 @@ the owner are exempt: money, anything the outside world sees, anything irreversi
 anything that is a matter of his taste.
 
 **The qualifier is not a softening, and it was measured.** [H-014, 2026-08-19]
-`project-three` found **four of five Midscene assertion failures were the
+`gamma` found **four of five Midscene assertion failures were the
 engine, not the product** — a parked core returning, the grammatical person of
 an answer, and a section heading all behaved correctly when the same steps were
 driven deterministically. Followed literally on that run, "fix what you find"
@@ -341,7 +341,7 @@ exists to prevent is a confident report with nothing behind it, and a report an
 agent types is that failure with extra steps. Add your own reading *under* the
 generated file, marked as yours.
 
-**Capture must never quietly downgrade.** [@owner · 2026-08-20] project-three's design run
+**Capture must never quietly downgrade.** [@owner · 2026-08-20] gamma's design run
 hit a macOS Screen Recording prompt, and rather than stop it switched to having
 the app photograph itself. That is a different, weaker instrument, and the run
 carried on as if nothing had changed — the owner had in fact granted the permission

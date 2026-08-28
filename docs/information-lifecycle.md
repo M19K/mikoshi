@@ -56,7 +56,7 @@ Three domains, deliberately unequal:
 2. **Startup ecosystem and markets** — YC batches, funding, who is building what. Context for the first.
 3. **Business and financial reaction** — how the market responds to both. Context for the first two.
 
-This is not a preference. `the owner Profile.md` names the driver: *"a real fear of technological obsolescence / FOMO on AI and tech developments — the direct motivation behind wanting a fully autonomous AI & Tech Tracking loop."* Missing a funding round costs nothing. Missing a technique everyone adopts for six months is the failure this whole system exists to prevent.
+This is not a preference. `Owner Profile.md` names the driver: *"a real fear of technological obsolescence / FOMO on AI and tech developments — the direct motivation behind wanting a fully autonomous AI & Tech Tracking loop."* Missing a funding round costs nothing. Missing a technique everyone adopts for six months is the failure this whole system exists to prevent.
 
 **Three consequences for the design, all of which override the general rules below:**
 

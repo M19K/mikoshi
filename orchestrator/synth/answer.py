@@ -46,7 +46,7 @@ sentence with a real citation is caught in seconds; a fluent one without is not
 caught at all.
 
     python3 -m synth.answer "why is there one API key per product"
-    python3 -m synth.answer "what is blocking the job search" --scope project-one
+    python3 -m synth.answer "what is blocking the job search" --scope alpha
 """
 import argparse
 import json

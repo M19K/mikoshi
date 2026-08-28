@@ -83,7 +83,7 @@ PHASES = {
         "invoke": None,
         "why": (
             "Separated from `feature` because it is the one thing a passing "
-            "functional run says nothing about — project-three's whole "
+            "functional run says nothing about — gamma's whole "
             "interactive core sat outside the accessibility tree for an entire "
             "run and every functional verdict was still honest."
         ),

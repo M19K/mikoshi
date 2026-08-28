@@ -39,7 +39,7 @@ VALID_HARNESS = {"@owner", "@admin", "@claude-code", "@hermes", "@cowork", "@unk
 OWNER_TAG = re.compile(r"^(@[a-z0-9-]+)(?:/([a-z0-9-]+))?$")
 # Scopes that name a ROLE, not a project. One per scheduled routine, and this
 # list is the only place they are enumerated — check 7 derives from it rather
-# than keeping its own copy, which is how `project-four` ended up in one
+# than keeping its own copy, which is how `delta` ended up in one
 # list and not the other.
 #
 # `ingestion` was missing until 2026-08-19, so the first log entry signed
@@ -70,7 +70,7 @@ def notes(vault):
     # otherwise be parsed like a note, held in memory, and reported as an orphan
     # forever — and a checker that quotes a line to explain a finding would quote
     # a secret. The correct number of tools that open this file is one, and it is
-    # `ledger/keys.py`. [@claude-code/project-four · 2026-08-20]
+    # `ledger/keys.py`. [@claude-code/delta · 2026-08-20]
     secret = {"keys.md", "keys.local.md"}
     return [p for p in vault.rglob("*.md")
             if p.name not in secret
@@ -287,7 +287,7 @@ def check(vault):
                       f"Live Status.md `last_write: {lw}` predates its newest log entry ({logged})"))
 
         # Same rule for `updated:`, and the same one direction only. Every other
-        # project carries it beside `last_write:`; `project-two` and `project-three` carried
+        # project carries it beside `last_write:`; `beta` and `gamma` carried
         # neither the key nor any complaint about its absence, and two more files
         # outside 02-Projects had simply stopped being touched — the Open Board
         # said 2026-08-19 while holding a 2026-08-20 entry of its own. Nothing
@@ -325,7 +325,7 @@ def check(vault):
              "board", "home", "vault origin", "_inbox"}
     # A QA run folder is dated EVIDENCE, not a note. Some of it is output the
     # product under test wrote to disk and the run captured verbatim — on
-    # 2026-08-19 a project-three memory file, frontmatter and all, reported as an orphan
+    # 2026-08-19 a gamma memory file, frontmatter and all, reported as an orphan
     # because it happened to be markdown. Evidence is located by its run folder,
     # never by traversal, so nothing will ever link to it and the finding can
     # only ever be noise. Exempted from the ORPHAN check only: these files are
@@ -347,7 +347,7 @@ def check(vault):
     # 7. stale references — the rename-propagation class.
     #
     # Every cross-reference in this vault is a string typed into prose, so
-    # renaming a project silently rots N places. `agentops` → `project-three` on
+    # renaming a project silently rots N places. `agentops` → `gamma` on
     # 2026-08-16 broke a Queue row, an ownership claim, three wikilinks, two
     # Knowledge Base entries and a ledger label — one rename, eight findings,
     # none of which announced itself.
@@ -361,7 +361,7 @@ def check(vault):
     logline = re.compile(r"^-\s+\d{4}-\d{2}-\d{2}\s+·")
     # A line documenting a change may name the old thing — that is the record
     # working, not a stale reference. `is now` was added 2026-08-19: the Notice
-    # announcing `model-routing` → `project-four` explains that project-three's log no
+    # announcing `model-routing` → `delta` explains that gamma's log no
     # longer carries `@claude-code/agentops`, and got flagged for naming the tag
     # it was reporting the removal of. Every phrase here is one a rename or
     # retirement notice actually used.
@@ -406,7 +406,7 @@ def check(vault):
         fm = re.match(r"^---\n(.*?)\n---", body, re.S)
         # No frontmatter block at all used to skip every lock check below, so a
         # file that lost its whole block reported *fewer* findings than one
-        # missing a single key. `project-four` lost its block on 2026-08-23 when a
+        # missing a single key. `delta` lost its block on 2026-08-23 when a
         # handoff rewrote the top of the file, and only the `updated:` check
         # noticed. The lock is the point of this file; say so plainly.
         if not fm:
@@ -461,7 +461,7 @@ def check(vault):
         # Out-of-order dates have TWO causes and the remedy differs, so the
         # message must not assert one. A genuinely late-appended entry is an
         # append-only violation; an entry sitting in the right place with a
-        # mistyped date is not. project-three was the second on 2026-08-18 — its
+        # mistyped date is not. gamma was the second on 2026-08-18 — its
         # "2026-08-13" Grok-docs line was committed 2026-08-15 and logged among
         # the 2026-08-16 block. Never reorder to silence this.
         #
@@ -638,7 +638,7 @@ def check(vault):
     #     This is the mechanism the Hume row needed. It read "unsubscribed ·
     #     $0.00" for three days because the note that would have fixed it was
     #     addressed to an agent that had been retired — nothing was watching.
-    #     [@claude-code/project-four · 2026-08-18]
+    #     [@claude-code/delta · 2026-08-18]
     ledger = vault / "01-Knowledge Base" / "Infrastructure Ledger.md"
     ledger_txt = ledger.read_text(encoding="utf-8").lower() if ledger.exists() else ""
     for costs in sorted((vault / "02-Projects").glob("*/Costs.jsonl")):
@@ -687,7 +687,7 @@ def check(vault):
     # it, and declares no key LABEL is invisible to `ledger.py attributed()` —
     # its money lands in the non-product bucket, the totals still close, and
     # `reconcile` reports every dollar accounted for while never naming it.
-    # Found 2026-08-21: project-one had drawn $0.36 through its own key and read
+    # Found 2026-08-21: alpha had drawn $0.36 through its own key and read
     # as "nothing recorded" for a day. A totals check cannot see a
     # misclassification that conserves the total, so this is checked structurally.
     # Deliberately narrow: only fires when the project HAS recorded spend on
