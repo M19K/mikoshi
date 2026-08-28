@@ -121,6 +121,47 @@ def latest_snapshot(pool: str = "openrouter"):
     return rows[-1] if rows else None
 
 
+def burn(pool: str = "openrouter", window_days: int = 7):
+    """Burn rate derived from pool-history.jsonl, never asserted.
+
+    Returns (rate_per_day, days_spanned, last_delta, last_delta_days) or None.
+    Written 2026-08-27: the Open Board carried "about two days" for four days
+    after the rate it was computed from had stopped. The data to re-derive it
+    was in this file the whole time; nothing read it. A runway that is typed
+    once is a claim, and a claim does not notice when it stops being true.
+    """
+    from datetime import date as _date
+
+    def d(s):
+        return _date(*(int(x) for x in s.split("-")))
+
+    rows = [s for s in snapshots() if s.get("pool") == pool]
+    if len(rows) < 2:
+        return None
+    rows.sort(key=lambda s: (s["date"], s.get("ts", "")))
+    last = rows[-1]
+
+    # one reading per day — the last of that day — so a twice-run routine
+    # does not read as a zero-length day.
+    by_day = {}
+    for s in rows:
+        by_day[s["date"]] = s
+    days = sorted(by_day)
+
+    span = [x for x in days if (d(last["date"]) - d(x)).days <= window_days]
+    if len(span) < 2:
+        return None
+    first = by_day[span[0]]
+    spanned = (d(last["date"]) - d(span[0])).days
+    if spanned <= 0:
+        return None
+    rate = (last["used_usd"] - first["used_usd"]) / spanned
+
+    prev = by_day[days[-2]]
+    gap = (d(last["date"]) - d(days[-2])).days
+    return rate, spanned, last["used_usd"] - prev["used_usd"], gap
+
+
 def pool_state(pool: str = "openrouter"):
     """(state, how) — live if a key is present, else the last snapshot, else None."""
     if pool == "openrouter":
@@ -344,6 +385,37 @@ def cmd_reconcile(_):
     print(f"  opening balance          ${baseline:>9.2f}   spent through the one")
     print(f"  {'':<24}{'':>10}   shared key before 2026-08-20 —")
     print(f"  {'':<24}{'':>10}   unattributable by construction")
+
+    b = burn("openrouter")
+    if b:
+        rate, spanned, last_delta, last_gap = b
+        print()
+        print(f"  burn, last {spanned}d          ${rate:>9.4f}   per day, from pool-history.jsonl")
+        # A single average hides a rate that changed. Print a short window beside
+        # the long one: when the two disagree, the average is the misleading half.
+        b3 = burn("openrouter", 5)
+        recent = None
+        if b3 and abs(b3[0] - rate) > 0.01:
+            recent = b3[0]
+            print(f"  burn, last {b3[1]}d          ${b3[0]:>9.4f}   per day — "
+                  f"{'well below' if b3[0] < rate else 'above'} the {spanned}d average, "
+                  f"so the rate CHANGED")
+        label = "since the previous reading" if last_gap != 1 else "in the last day"
+        print(f"  most recent step         ${last_delta:>9.4f}   {label}"
+              + (f" ({last_gap}d apart)" if last_gap != 1 else ""))
+        rates = [("the %dd average" % spanned, rate)]
+        if recent is not None:
+            rates.append(("the recent rate", recent))
+        for label, r in rates:
+            if r > 0.005:
+                print(f"  runway on {label:<15}{state['remaining_usd'] / r:>7.0f}d   "
+                      f"on ${state['remaining_usd']:.2f} remaining")
+            else:
+                print(f"  runway on {label:<15}{'—':>7}    barely drawing")
+        if len(rates) > 1:
+            print("  TWO runways because the rate changed. Neither is 'the' number —")
+            print("  which one holds depends on whether the agents run. Say both.")
+        print("  Quote this, not a remembered rate — the two diverged for four days in August.")
 
     gap = state["used_usd"] - baseline - named - non_product
     if abs(gap) > 0.01:

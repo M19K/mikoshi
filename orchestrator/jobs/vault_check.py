@@ -863,6 +863,44 @@ def check(vault):
                           f"the rightmost column — usually Status — is not being "
                           f"rendered. Escape any `|` inside the text as `\\|`."))
 
+    # ---- queue-section-split ---------------------------------------------
+    # A `##` section in Queue.md is meant to hold ONE table. On 2026-08-27 the
+    # Notices section held two, with the section's own description stranded
+    # between them — a newer table inserted directly under the heading, above
+    # the prose and the original table. Every individual row was well-formed,
+    # so the per-row check above saw nothing; a reader hit the blank line and
+    # the prose and stopped, and thirty notices below it were invisible.
+    # The damage is structural, not per-row, which is why it needs its own
+    # check. [@claude-code/maintenance · 2026-08-27]
+    if queue_md.exists():
+        section, headers = None, []
+
+        def flush(sec, hs):
+            if not sec or len(hs) < 2:
+                return
+            for h, ln in hs[1:]:
+                if h == hs[0][0]:
+                    f.append(("queue-section-split", f"Queue.md:{ln}",
+                              f"*{sec}* holds more than one table with the same "
+                              f"header `{h}`. A section is meant to hold one; a "
+                              f"second one below a blank line reads as the end of "
+                              f"the section, and every row under it goes unread. "
+                              f"Merge them into a single table."))
+
+        in_table = False
+        for i, line in enumerate(queue_md.read_text(encoding="utf-8").splitlines(), 1):
+            if line.startswith("## "):
+                flush(section, headers)
+                section, headers, in_table = line[3:].strip(), [], False
+                continue
+            if not line.startswith("|"):
+                in_table = False               # a blank line or prose ends a table
+                continue
+            if not in_table:                   # first `|` line after a break = a header
+                headers.append((line.strip(), i))
+                in_table = True
+        flush(section, headers)
+
     return f
 
 def main():

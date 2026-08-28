@@ -18,6 +18,13 @@ judgment, and judgment is not generated. Those stay hand-written.
     python3 05-Orchestrator/jobs/sync_board.py --check         # exit 1 if it differs
     python3 05-Orchestrator/jobs/sync_board.py --stamps        # who touched what, when
     python3 05-Orchestrator/jobs/sync_board.py --merge <file>  # resolve a republish conflict
+    python3 05-Orchestrator/jobs/sync_board.py --inbox         # what other agents have queued
+
+**One agent publishes this board.** [@owner · 2026-08-27] `@claude-code/mikoshi`
+holds it; every other agent appends to `Board Inbox.md` and carries on. Per
+section timestamps fixed *how* a conflict resolves; a single writer means there
+is not one. Applied on `keyword=board update`, never automatically — an entry is
+a request, and the publisher still edits it for length and duplication.
 
 **Every section carries the time it was last changed and who changed it.**
 [@owner · 2026-08-27] Two sessions can both republish the board, and until now a
@@ -42,6 +49,7 @@ rather than the next morning.
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import re
 import sys
@@ -272,6 +280,62 @@ def merge(ours: str, theirs: str, handoffs: list[dict]) -> tuple[str, list[str]]
 # a cache, not a source: delete it and the next sync rewrites it.
 SNAPSHOT = VAULT / "05-Orchestrator" / "state" / "board-sections.json"
 
+# **The board is an index of what is outstanding, not a report on it.**
+# [@owner · 2026-08-27] Measured that day: 69 items, 5,274 words, one of them
+# 354 — a page nobody can scan, which defeats the only reason it exists. An
+# item is a headline plus two or three lines. **The detail is not lost, it is
+# in the project log, which is where a reader who wants it should be sent.**
+#
+# 45 words is the cap, and it is not a guess: at the board's column width a
+# line runs about 15 words, so three lines is 45. The headline is not counted —
+# it is doing the work of the first line.
+ITEM_WORDS = 45
+ITEM_RE = re.compile(r"<h3>(?P<head>.*?)</h3>(?P<body>.*?)(?=</div>\s*</li>)", re.S)
+
+# **Finished work does not belong on this page.** [@owner · 2026-08-27] The
+# board has said so in its own first line since it was written, and eight
+# finished items were on it anyway — because "done" feels like something worth
+# showing, and every one of them pushed an open item further down.
+#
+# The trap is the item that is *mostly* done: two of those eight carried an
+# open half inside them, and deleting them wholesale would have deleted the
+# open half too. So the rule is not "delete anything green" — it is that a
+# finished chip may not exist, and clearing one means asking what is still
+# open inside it and giving that its own row.
+DONE_CHIPS = {"done", "answered", "fixed", "ready", "closed", "shipped", "complete"}
+CHIP_RE = re.compile(r'<span class="chip[^"]*">([^<]*)</span>')
+
+
+def finished(text: str) -> list[str]:
+    """Items marked as finished. The board is what is outstanding."""
+    out = []
+    for m in re.finditer(r"<li>.*?</li>", text, re.S):
+        chip = CHIP_RE.search(m.group(0))
+        head = re.search(r"<h3>(.*?)</h3>", m.group(0), re.S)
+        if chip and head and chip.group(1).strip().lower() in DONE_CHIPS:
+            out.append(f"{chip.group(1).strip():<10} {_plain(head.group(1))[:62]}")
+    return out
+
+
+def _plain(fragment: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", html.unescape(fragment))).strip()
+
+
+def overlong(text: str) -> list[tuple[int, str]]:
+    """Items whose body runs past the cap, longest first."""
+    out = []
+    for m in ITEM_RE.finditer(text):
+        body = m.group("body")
+        # The meta line is a citation and the `who` line is a routing label.
+        # Neither is prose the reader has to wade through, so neither counts
+        # against the cap — otherwise adding a useful label makes an item
+        # "too long" and the fix is to delete the label.
+        body = re.sub(r'<p class="(?:meta|who)">.*?</p>', "", body, flags=re.S)
+        n = len(_plain(body).split())
+        if n > ITEM_WORDS:
+            out.append((n, _plain(m.group("head"))[:64]))
+    return sorted(out, reverse=True)
+
 
 def _digest(block: str) -> str:
     return hashlib.sha256(block.encode("utf-8")).hexdigest()[:12]
@@ -321,6 +385,52 @@ def main() -> None:
             print(f"  {stamp:<17} {by:<28} {sid}")
         print("\n  Newest change wins, per section. An edit whose stamp did not")
         print("  move is invisible to a merge — which is the same as not making it.")
+        return
+
+    if "--lint" in sys.argv:
+        board = BOARD.read_text(encoding="utf-8")
+        fin = finished(board)
+        if fin:
+            print(f"{len(fin)} FINISHED item(s) still on the board:\n")
+            for f in fin:
+                print(f"  {f}")
+            print("\n  The board is what is outstanding. Finished work lives in the")
+            print("  project log. Before removing one, ask what is still open inside")
+            print("  it — a mostly-done item hides the half that is not.")
+            sys.exit(1)
+        long = overlong(board)
+        if not long:
+            print(f"Every item is within {ITEM_WORDS} words. The board is scannable.")
+            return
+        print(f"{len(long)} item(s) over {ITEM_WORDS} words — a headline plus two "
+              f"or three lines:\n")
+        for n, head in long:
+            print(f"  {n:>4}w  {head}")
+        print("\n  The board indexes what is outstanding; it does not report on it.")
+        print("  Move the detail to the project log and link it in the meta line.")
+        sys.exit(1)
+
+    if "--inbox" in sys.argv:
+        inbox = VAULT / "05-Orchestrator" / "Board Inbox.md"
+        if not inbox.is_file():
+            print(f"no inbox at {inbox}"); return
+        text = inbox.read_text(encoding="utf-8")
+        try:
+            pending = text.split("## Pending", 1)[1].split("## Applied", 1)[0]
+        except IndexError:
+            print("Board Inbox.md has no ## Pending / ## Applied sections"); sys.exit(2)
+        entries = [b for b in re.split(r"^### ", pending, flags=re.M)[1:]]
+        if not entries:
+            print("Nothing queued. The board is current with what agents have asked for.")
+            return
+        print(f"{len(entries)} request(s) waiting for `keyword=board update`:\n")
+        for e in entries:
+            head, *rest = e.strip().splitlines()
+            action = (rest[0].strip() if rest else "?")
+            title = next((l for l in rest[1:] if l.strip()), "").strip()[:70]
+            print(f"  {head.strip()}")
+            print(f"      {action:<9} {title}")
+        print("\n  Applied by @claude-code/mikoshi only. Everyone else appends and moves on.")
         return
 
     if "--merge" in sys.argv:
