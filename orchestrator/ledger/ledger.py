@@ -293,11 +293,11 @@ def cmd_snapshot(args):
                "ts": dt.datetime.now().isoformat(timespec="seconds"),
                "loaded_usd": args.loaded, "used_usd": args.used,
                "remaining_usd": round(args.loaded - args.used, 6),
-               "how": "openrouter connector", "by": args.by}
+               "how": args.how, "by": args.by}
         with SNAPSHOTS.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
         print(f"openrouter: ${args.used:.2f} used of ${args.loaded:.2f} "
-              f"recorded for {today()} (read via the connector by {args.by})")
+              f"recorded for {today()} (read via {args.how} by {args.by})")
         return 0
 
     n = 0
@@ -520,6 +520,21 @@ def main():
     s.add_argument("--loaded", type=float, help="total credits loaded, read via the connector")
     s.add_argument("--used", type=float, help="total usage, read via the connector")
     s.add_argument("--by", default="@claude-code", help="who took the reading")
+    # `how` was hardcoded to "openrouter connector" until 2026-08-29, which made
+    # the field worthless: a scheduled run has no connector and reads the same
+    # numbers off the REST endpoint, and the row claimed the connector anyway.
+    # A provenance field that always says the same thing is not provenance.
+    # [@claude-code/maintenance · 2026-08-29]
+    #
+    # Un-hardcoding it was not enough: the *default* was left at the old string,
+    # so a run that simply omits the flag still writes the same false claim.
+    # That is what happened on 2026-08-31 — the connector has been gone since
+    # 2026-08-27, the reading came off REST, and the row said "connector".
+    # The default is now the honest one; a caller that knows says so.
+    # [@claude-code/maintenance · 2026-08-31]
+    s.add_argument("--how", default="unrecorded — --how not passed",
+                   help="where the reading came from — 'openrouter connector' "
+                        "or 'openrouter REST /credits'")
     sub.add_parser("reconcile", help="attributed vs actually drawn")
     sub.add_parser("render", help="rewrite the prose ledger's Part 2")
     a = ap.parse_args()

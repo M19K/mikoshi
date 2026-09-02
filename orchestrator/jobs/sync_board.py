@@ -57,7 +57,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from handoff_status import is_open
+from handoff_status import cells as row_cells, is_open
 
 VAULT = Path(__file__).resolve().parents[2]
 BOARD = VAULT / "05-Orchestrator" / "Open Board.html"
@@ -74,7 +74,7 @@ def open_handoffs(queue_text: str) -> list[dict]:
         m = re.match(r"\|\s*(H-\d+)\s*\|\s*`?([^`|]+)`?\s*\|\s*`?([^`|]+)`?\s*\|", line)
         if not m:
             continue
-        cells = line.rstrip().rstrip("|").split(" | ")
+        cells = row_cells(line)
         status = cells[-1].strip().lower()
         # One definition of "open", in handoff_status.py — this used to be a
         # private copy and drifted from vault_check.py within a day.
@@ -415,10 +415,18 @@ def main() -> None:
         if not inbox.is_file():
             print(f"no inbox at {inbox}"); return
         text = inbox.read_text(encoding="utf-8")
-        try:
-            pending = text.split("## Pending", 1)[1].split("## Applied", 1)[0]
-        except IndexError:
-            print("Board Inbox.md has no ## Pending / ## Applied sections"); sys.exit(2)
+        # Split on the HEADINGS, anchored to the start of a line — not on the
+        # bare strings. An entry whose body quotes the applied-entries heading
+        # (as one did on 2026-08-31, explaining that trap) truncated `pending`
+        # at its own body and hid every entry below it. The listing still
+        # printed a plausible number, so nothing looked wrong.
+        parts = re.split(r"^## Pending\s*$", text, flags=re.M)
+        if len(parts) < 2:
+            print("Board Inbox.md has no ## Pending section"); sys.exit(2)
+        tail = re.split(r"^## Applied\s*$", parts[1], flags=re.M)
+        if len(tail) < 2:
+            print("Board Inbox.md has no ## Applied section"); sys.exit(2)
+        pending = tail[0]
         entries = [b for b in re.split(r"^### ", pending, flags=re.M)[1:]]
         if not entries:
             print("Nothing queued. The board is current with what agents have asked for.")
@@ -467,12 +475,18 @@ def main() -> None:
               + "\n\n  The newest stamp decides a republish conflict, so an edit\n"
                 "  that did not move one cannot win and will be silently lost.\n"
                 "  Set data-updated to now and data-by to your tag.")
-        if check:
-            sys.exit(1)
+    # [@claude-code/maintenance · 2026-08-30] Both conditions are reported, then
+    # one exit. This used to `sys.exit(1)` inside the `drifted` branch, so an
+    # unstamped edit MASKED the out-of-sync report — the Stop hook runs `--check`,
+    # and on 2026-08-30 it printed only the stamp warning while H-068 and H-070
+    # were open in the queue and missing from the board. A checker that hides the
+    # very drift it exists to catch is worse than no checker.
+    if want != board:
+        print(("\n" if drifted else "")
+              + "OPEN BOARD IS OUT OF SYNC WITH THE QUEUE.\n"
+                "  Run: python3 05-Orchestrator/jobs/sync_board.py\n"
+                "  then republish it. The board is the page the owner reads.")
     if check:
-        print("OPEN BOARD IS OUT OF SYNC WITH THE QUEUE.\n"
-              "  Run: python3 05-Orchestrator/jobs/sync_board.py\n"
-              "  then republish it. The board is the page the owner reads.")
         sys.exit(1)
     BOARD.write_text(want, encoding="utf-8")
     snapshot(want)

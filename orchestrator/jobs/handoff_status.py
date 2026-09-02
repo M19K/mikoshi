@@ -20,6 +20,8 @@ dropped. `mine.py` exists because a false all-clear is worse than no check.
 """
 from __future__ import annotations
 
+import re as _re
+
 # Words agents actually write when a handoff is finished. Matched on the first
 # token of the status cell, after stripping markdown emphasis.
 CLOSED_WORDS = (
@@ -54,3 +56,25 @@ def is_open(status: str) -> bool:
     if not head:
         return True
     return not head.startswith(CLOSED_WORDS)
+
+
+# Splitting a row on the literal `" | "` assumes every author padded their
+# pipes. On 2026-08-28 one did not: H-064's row was written `| H-064|`from`|`to`|…`
+# with no spaces, so `sync_board.py` read the WHOLE ROW as the status cell, its
+# first token came out `h-064`, and `is_open` — open by default, correctly —
+# published a handoff that had been **answered on 2026-08-27** to the board the owner
+# reads. `mine.py` read the same row correctly, so the two tools disagreed about
+# what was outstanding, which is the exact failure this module was created to
+# end. The splitter belongs beside the definition it feeds.
+# [@claude-code/maintenance · 2026-08-28]
+_PIPE = _re.compile(r"(?<!\\)\|")
+
+
+def cells(line: str) -> list:
+    r"""A table row's content cells, padded or not, `\|` escapes respected."""
+    parts = _PIPE.split(line.strip())
+    if parts and not parts[0].strip():
+        parts = parts[1:]
+    if parts and not parts[-1].strip():
+        parts = parts[:-1]
+    return parts

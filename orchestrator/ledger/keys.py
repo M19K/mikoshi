@@ -52,7 +52,8 @@ ENTRY = re.compile(r"^\s*[-*]?\s*([A-Za-z0-9_.\- ]+?)\s*:\s*(.*?)\s*$")
 
 # When the file carries no `##` headings, the key's own prefix says who issued it.
 # the owner writes this by hand and should not have to remember a schema.
-PREFIX = [("sk-or-", "openrouter"), ("sk-proj-", "openai"), ("sk-", "openai")]
+PREFIX = [("sk-or-", "openrouter"), ("sk-proj-", "openai"), ("nvapi-", "nvidia"),
+          ("sk-", "openai")]
 
 # His words on the left, the canonical label on the right. The registry and the
 # routing table use folder names; a human writing a list at speed does not.
@@ -370,7 +371,11 @@ def _verify(provider, value):
     """Ask the provider whether the key works. (ok, detail)."""
     import json as _json, urllib.request, urllib.error
     url = {"openrouter": "https://openrouter.ai/api/v1/key",
-           "openai": "https://api.openai.com/v1/models"}.get(_norm(provider))
+           "openai": "https://api.openai.com/v1/models",
+           # NVIDIA's hosted catalogue speaks the OpenAI shape, so the same
+           # bearer check works and a bad paste is refused at the prompt
+           # rather than stored and discovered later as a 401.
+           "nvidia": "https://integrate.api.nvidia.com/v1/models"}.get(_norm(provider))
     if not url:
         return True, "no check available for this provider"
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {value}"})

@@ -248,6 +248,31 @@ def check(vault):
             if not has_owner and pd.name in claimed:
                 f.append(("owner-mismatch", pd.name, "in Queue Active but owner: is none"))
 
+        # A project cannot be both held and free. On 2026-08-29 `beta` sat in
+        # Active (claimed 2026-08-20) *and* in Idle, because the Idle row written
+        # when its lock was released on 2026-08-17 was never removed when it was
+        # re-claimed three days later. Neither check above sees it: check 3 finds
+        # the Active row and is satisfied, and the stale-claim check reads Active
+        # alone. The stale Idle row still says "left at", so an agent reading the
+        # Idle table takes a project someone is holding.
+        # [@claude-code/maintenance · 2026-08-29]
+        def _table(name):
+            if f"## {name}" not in qt:
+                return set()
+            body = qt.split(f"## {name}")[1].split("\n## ")[0]
+            cells = re.findall(r"^\|\s*([\w-]+)\s*\|", body, re.M)
+            # Drop the header cell and the `|---|` separator, which match the
+            # same shape as a project name and would otherwise fire every run.
+            return {c for c in cells if c != "Project" and set(c) != {"-"}}
+        both = _table("Active") & _table("Idle")
+        for proj in sorted(both):
+            f.append(("queue-duplicate", proj,
+                      "listed in the Queue's Active table AND its Idle table. "
+                      "`Live Status.md` frontmatter is authoritative — keep the "
+                      "row that agrees with `owner:` and remove the other. A "
+                      "stale Idle row invites a second agent to claim a project "
+                      "somebody is already holding."))
+
     # 4. quiet projects — active status, nothing logged in a fortnight
     for pd in sorted((vault / "02-Projects").iterdir()):
         if not pd.is_dir() or pd.name.startswith("."):
@@ -367,6 +392,15 @@ def check(vault):
     # retirement notice actually used.
     about_change = re.compile(
         r"retired|renamed|superseded|was folded|archived|is now|no longer", re.I)
+    # A placeholder was never a real name, so it cannot be a rename that failed
+    # to propagate — this class is a template documenting the SHAPE of a tag or
+    # path. `Board Inbox.md` carries `@claude-code/your-project` in the block
+    # that shows agents how to write an entry; it is meant to sit there forever,
+    # and it produced a finding on every run from the day the file was created.
+    # Scoped to the fill-in-the-blank prefixes rather than to fenced blocks,
+    # because a stale `cd 02-Projects/<old-name>` inside a code block IS a real
+    # finding and must stay catchable. [@claude-code/maintenance · 2026-08-28]
+    placeholder = re.compile(r"^(your|my|some|example|placeholder)([-_]|$)", re.I)
     seen = {}
     for p in ns:
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
@@ -374,10 +408,11 @@ def check(vault):
             if logline.match(s) or about_change.search(s):
                 continue
             for m in re.finditer(r"02-Projects/([\w-]+)", line):
-                if m.group(1) not in projects:
+                if m.group(1) not in projects and not placeholder.match(m.group(1)):
                     seen.setdefault(m.group(1), []).append(f"{p.relative_to(vault)}:{i}")
             for m in re.finditer(r"@claude-code/([\w-]+)", line):
-                if m.group(1) not in projects and m.group(1) not in roles:
+                if (m.group(1) not in projects and m.group(1) not in roles
+                        and not placeholder.match(m.group(1))):
                     seen.setdefault(m.group(1), []).append(f"{p.relative_to(vault)}:{i}")
     for name, places in sorted(seen.items(), key=lambda kv: -len(kv[1])):
         f.append(("stale-reference", name,
@@ -602,14 +637,16 @@ def check(vault):
             import os as _os
             import sys as _sys
             _sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
-            from handoff_status import is_open as _handoff_is_open
+            from handoff_status import (cells as _handoff_cells,
+                                        is_open as _handoff_is_open)
             on_board = set(_re.findall(r"<h3>(H-\d+) →", b))
             open_in_queue = set()
             for line in q.splitlines():
                 m = _re.match(r"\|\s*(H-\d+)\s*\|", line)
                 if not m:
                     continue
-                last = line.rstrip().rstrip("|").split(" | ")[-1].strip()
+                _c = _handoff_cells(line)
+                last = _c[-1].strip() if _c else ""
                 # One definition, in handoff_status.py. This test used to be a
                 # third private copy and had not learned that "Reopened" is
                 # open, so it reported a genuinely open handoff as stale while
@@ -907,6 +944,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--vault", default=str(Path.home() / "Documents" / "Mikoshi"))
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--project", metavar="NAME",
+                    help="only findings about this project — what `keyword=handoff` runs")
     ap.add_argument("--stamp", action="store_true",
                     help="repair frontmatter dates trailing the newest log entry, then check")
     a = ap.parse_args()
@@ -919,6 +958,19 @@ def main():
         print(f"stamped {proj}: {field} {was} -> {now}")
 
     allf = check(vault)
+    if a.project:
+        # **The handoff audit.** [@owner · 2026-08-28] A long project accumulates
+        # abandoned turns, and the next thread reads the folder as though every
+        # word in it is current. Deterministic findings are the cheap half and
+        # are all this can do: a broken link, a stale claim, a date trailing the
+        # log, a reference to something that no longer exists.
+        #
+        # **It cannot tell you a paragraph describes a direction you abandoned.**
+        # That is the expensive half and it stays a reading job. This narrows
+        # the folder to what is mechanically wrong so the reading has somewhere
+        # to start, and exits non-zero so a handoff cannot quietly skip it.
+        want = a.project.lower()
+        allf = [x for x in allf if want in str(x[1]).lower()]
     f = [x for x in allf if x[0] not in TELEMETRY]
     tel = [x for x in allf if x[0] in TELEMETRY]
     if a.json:

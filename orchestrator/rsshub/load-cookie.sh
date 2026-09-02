@@ -17,6 +17,9 @@ set -uo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_FILE="$HERE/.env"
+# The port RSSHub is published on in docker-compose.yml. A default, not a
+# constant: anyone whose 1200 is already taken sets RSSHUB_URL and this works.
+RSSHUB_URL="${RSSHUB_URL:-http://localhost:1200}"
 # A temp DIRECTORY, then a path inside it that does not exist yet. `mktemp` on a
 # file creates it empty, and yt-dlp refuses to write a cookie jar over a file
 # that lacks the Netscape header — so the obvious version silently produced
@@ -28,7 +31,7 @@ trap 'rm -rf "$TMPDIR_"' EXIT
 check() {
   local code
   code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 45 \
-    "http://localhost:1200/twitter/user/karpathy")
+    "$RSSHUB_URL/twitter/user/karpathy")
   if [ "$code" = "200" ]; then
     echo "✅ X route works (200)"
     return 0
