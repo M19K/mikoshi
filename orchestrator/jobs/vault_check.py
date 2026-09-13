@@ -141,6 +141,29 @@ def last_log_date(p):
     ds = re.findall(r"^- (\d{4}-\d{2}-\d{2})", p.read_text(encoding="utf-8"), re.M)
     return max(ds) if ds else None
 
+def last_log_date_by(p, agent):
+    """Newest ISO date logged by ONE agent tag.
+
+    The stale-claim check needs this and the project-wide date will not do.
+    A claim goes stale when the CLAIMANT stops working, and on any project the
+    daily routines also write to — `delta` above all, which every
+    routine logs into by design — the project-wide date is refreshed every
+    single day by agents that do not hold the lock. So the check could never
+    fire there: `@claude-code/delta` sat on a claim from 2026-08-21
+    having last logged 2026-08-22, and twelve days of daily runs all read the
+    lock as fresh. A false negative as a class, not a one-off.
+    [@claude-code/maintenance · 2026-09-03]
+    """
+    if not p.exists():
+        return None
+    # LOG_ENTRY is anchored `^…$` and compiled WITHOUT re.M, so finditer over the
+    # whole text matches only at offset 0. Every other caller feeds it one line at
+    # a time; do the same here rather than recompile it.
+    ds = [m.group(1) for m in
+          (LOG_ENTRY.match(l) for l in p.read_text(encoding="utf-8").splitlines())
+          if m and m.group(2) == agent]
+    return max(ds) if ds else None
+
 def frontmatter(p):
     if not p.exists():
         return {}
@@ -228,11 +251,17 @@ def check(vault):
             proj, agent, since = row
             age = (today - datetime.strptime(since, "%Y-%m-%d").date()).days
             ls = vault / "02-Projects" / proj / "Live Status.md"
-            logged = last_log_date(ls)
-            log_age = (today - datetime.strptime(logged, "%Y-%m-%d").date()).days if logged else 999
+            # Measured against the CLAIMANT's own entries — see last_log_date_by.
+            # A claimant that has never logged is governed by claim age alone.
+            mine = last_log_date_by(ls, agent.strip("`"))
+            anyone = last_log_date(ls)
+            log_age = ((today - datetime.strptime(mine, "%Y-%m-%d").date()).days
+                       if mine else age)
             if age >= STALE_CLAIM_DAYS and log_age >= STALE_CLAIM_DAYS:
+                seen = f"last logged by them {mine}" if mine else "they have never logged"
+                other = f"; project last touched {anyone}" if anyone and anyone != mine else ""
                 f.append(("stale-claim", proj,
-                          f"{agent} claimed it {age}d ago; last log {logged or 'never'}. Released, or forgotten?"))
+                          f"{agent} claimed it {age}d ago; {seen}{other}. Released, or forgotten?"))
 
     # 3. owner mismatch — Queue says one thing, the project says another
     if q.exists():
@@ -401,11 +430,27 @@ def check(vault):
     # because a stale `cd 02-Projects/<old-name>` inside a code block IS a real
     # finding and must stay catchable. [@claude-code/maintenance · 2026-08-28]
     placeholder = re.compile(r"^(your|my|some|example|placeholder)([-_]|$)", re.I)
+    # A row REPORTING a bad tag must be able to quote it. Until 2026-09-08 it
+    # could not: H-084 was posted to tell `alpha` that its new agent brief
+    # assigns `@claude-code/alpha-apply`, and the row quoting the tag
+    # became the second occurrence of the finding it was raising — so the count
+    # went UP by reporting it, and the only way to file the handoff cleanly was
+    # to mangle the tag until the regex missed it. That is the same shape as the
+    # `is now` case above, one class further out: `about_change` exempts a line
+    # about a rename, this exempts a line about a lint finding.
+    #
+    # Deliberately keyed to the class SLUGS and not to prose. `stale-reference`
+    # and `log-hygiene` are this checker's own vocabulary — nothing else in the
+    # vault writes them — so an ordinary sentence cannot reach the exemption by
+    # accident, which `orphan` or `broken-link` would allow every time someone
+    # used the English word. [@claude-code/maintenance · 2026-09-08]
+    about_finding = re.compile(r"stale-reference|log-hygiene", re.I)
     seen = {}
     for p in ns:
         for i, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             s = line.strip()
-            if logline.match(s) or about_change.search(s):
+            if (logline.match(s) or about_change.search(s)
+                    or about_finding.search(s)):
                 continue
             for m in re.finditer(r"02-Projects/([\w-]+)", line):
                 if m.group(1) not in projects and not placeholder.match(m.group(1)):
@@ -860,8 +905,14 @@ def check(vault):
                           f"Those points on the spend curve are gone for good: "
                           f"OpenRouter only reaches back 30 completed days, so a "
                           f"balance not written down on the day cannot be "
-                          f"reconstructed. Check that the scheduler is alive "
-                          f"rather than assuming the vault was simply quiet."))
+                          f"reconstructed. **A gap does not mean the scheduler "
+                          f"was down.** Check `mcp__scheduled-tasks__list_scheduled_tasks` "
+                          f"for `lastRunAt` before assuming it: on 2026-09-01 the run "
+                          f"fired on time and still recorded nothing, because this "
+                          f"routine's own instructions told it to resolve an "
+                          f"`openrouter` key label that does not exist. A fired run "
+                          f"that wrote nothing and a run that never fired look "
+                          f"identical from here."))
 
     # ---- queue-table-malformed ------------------------------------------
     # `Queue.md` is the vault's only live channel and every table in it is

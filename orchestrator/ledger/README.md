@@ -15,7 +15,7 @@ money is this?*
 | `keys.py` | The only thing that reads `keys.md`. Resolves a provider + project to the one key that caller is entitled to, and refuses to fall back. |
 | [[05-Orchestrator/ledger/keys.example|keys.example.md]] | The format. Copy this shape. |
 | `keys.md` | **Not in git.** Live keys, written by the owner. |
-| `pool-history.jsonl` | Daily balance snapshots. The only permanent record of the drawdown curve — OpenRouter's own history reaches back 30 days. |
+| `pool-history.jsonl` | Daily balance snapshots, pool total **and per-key split** (`by_key_usd`, added 2026-09-09). The only permanent record of the drawdown curve — OpenRouter's own history reaches back 30 days, and that limit applies to the per-key numbers too, so a split not written down is a month later unanswerable. |
 
 ```bash
 python3 -m ledger.ledger report --paying-only   # what each product costs

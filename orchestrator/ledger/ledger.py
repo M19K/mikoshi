@@ -86,16 +86,19 @@ def openrouter_live():
     Falls back to `OPENROUTER_API_KEY` in the environment, then to nothing —
     at which point a reading taken via the connector can still be passed to
     `snapshot --loaded/--used` by hand."""
-    key = None
+    key, source = None, None
     try:
         from .keys import resolve, KeyError_
         try:
             key = resolve("openrouter", label="management")
+            source = "openrouter REST /credits (management key)"
         except KeyError_:
             key = None
     except ImportError:
         pass
-    key = key or os.environ.get("OPENROUTER_API_KEY")
+    if not key:
+        key = os.environ.get("OPENROUTER_API_KEY")
+        source = "openrouter REST /credits (OPENROUTER_API_KEY)" if key else None
     if not key:
         return None
     req = urllib.request.Request(f"{OPENROUTER}/credits",
@@ -107,7 +110,13 @@ def openrouter_live():
         return None
     return {"loaded_usd": float(d["total_credits"]),
             "used_usd": float(d["total_usage"]),
-            "remaining_usd": float(d["total_credits"]) - float(d["total_usage"])}
+            "remaining_usd": float(d["total_credits"]) - float(d["total_usage"]),
+            # Which key actually read it, so the row's provenance is observed
+            # rather than assumed. The automatic branch of `snapshot` wrote no
+            # `how` and no `by` at all until 2026-09-02, so an unattended run
+            # recorded a number nobody could trace to a reader.
+            # [@claude-code/maintenance · 2026-09-02]
+            "source": source}
 
 
 def snapshots() -> list:
@@ -129,6 +138,14 @@ def burn(pool: str = "openrouter", window_days: int = 7):
     after the rate it was computed from had stopped. The data to re-derive it
     was in this file the whole time; nothing read it. A runway that is typed
     once is a claim, and a claim does not notice when it stops being true.
+
+    Extended 2026-09-02: the averages carry the same fault one window down.
+    Both the 7d and 5d figures are dominated by whichever days were busy, so
+    when the largest spender stops they keep quoting the rate from before it
+    stopped — on 2026-09-02 both said one day left while the two days since
+    the previous reading had drawn $0.39, about 29 days. `last_delta` was
+    already returned here and nothing turned it into a runway; reconcile()
+    now does.
     """
     from datetime import date as _date
 
@@ -300,15 +317,47 @@ def cmd_snapshot(args):
               f"recorded for {today()} (read via {args.how} by {args.by})")
         return 0
 
+    # Only `openrouter` has a balance endpoint wired. `hume` and `openai` are
+    # subscription/usage-billed and have no reader here, so the loop used to
+    # print, for each of them, that setting OPENROUTER_API_KEY would fix it and
+    # that the fallback was `snapshot --loaded/--used` — a command whose branch
+    # hardcodes `"pool": "openrouter"`, so following the instruction would have
+    # written a hume balance into the OpenRouter history. Two false claims a
+    # day, every day, in the output of the routine whose job is the money.
+    # A pool with no reader is not a failed reading; say what it actually is.
+    # [@claude-code/maintenance · 2026-09-02]
+    READABLE = {"openrouter"}
+
     n = 0
     for pool in registry()["pools"]:
-        state = openrouter_live() if pool == "openrouter" else None
-        if not state:
-            print(f"{pool}: no live reading. Either set OPENROUTER_API_KEY, or read")
-            print(f"  the balance through the OpenRouter connector and pass it:")
-            print(f"    python3 -m ledger.ledger snapshot --loaded 80 --used 25.27")
+        if pool not in READABLE:
+            print(f"{pool}: no balance endpoint wired — subscription/usage-billed, "
+                  f"recorded by hand in ledger/products.json. Nothing to snapshot.")
             continue
-        row = {"date": today(), "pool": pool, "ts": dt.datetime.now().isoformat(timespec="seconds"), **state}
+        state = openrouter_live()
+        if not state:
+            print(f"{pool}: no live reading — the `management` key did not resolve and")
+            print(f"  OPENROUTER_API_KEY is unset. Read total_credits and total_usage")
+            print(f"  through the OpenRouter connector if this session has one, and pass them:")
+            print(f"    python3 -m ledger.ledger snapshot --loaded <total_credits> --used <total_usage> \\")
+            print(f"        --by \"@claude-code/maintenance\" --how \"openrouter connector\"")
+            continue
+        source = state.pop("source", None)
+        row = {"date": today(), "pool": pool,
+               "ts": dt.datetime.now().isoformat(timespec="seconds"), **state,
+               "how": args.how if "unrecorded" not in args.how else (source or "unrecorded"),
+               "by": args.by}
+        # Store the per-key split alongside the pool total, not just the total.
+        # `reconcile` reads the split live and keeps none of it, so on 2026-09-09
+        # the only way to learn WHICH product had drawn $2.99 overnight was to
+        # grep a figure out of a prose log entry written two days earlier. The
+        # 30-day window that justifies snapshotting the pool at all applies to
+        # the per-key numbers identically — unstored, they are gone for good.
+        # Same management key, already resolved; one extra call.
+        # [@claude-code/maintenance · 2026-09-09]
+        by_key = openrouter_by_key()
+        if by_key:
+            row["by_key_usd"] = by_key
         with SNAPSHOTS.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
         print(f"{pool}: ${state['used_usd']:.2f} used of ${state['loaded_usd']:.2f} recorded for {today()}")
@@ -406,6 +455,15 @@ def cmd_reconcile(_):
         rates = [("the %dd average" % spanned, rate)]
         if recent is not None:
             rates.append(("the recent rate", recent))
+        # Both averages are dominated by whichever days were busy, so when a
+        # spender stops they keep quoting the rate from before it stopped. On
+        # 2026-09-02 both printed 1d while the two days since the last reading
+        # had drawn $0.39 — about 29d. The step is the only rate measured on
+        # the present, and it was already computed here and never used.
+        step_rate = last_delta / last_gap if last_gap else None
+        if step_rate is not None and all(abs(step_rate - r) > 0.01
+                                         for _, r in rates):
+            rates.append(("the latest step", step_rate))
         for label, r in rates:
             if r > 0.005:
                 print(f"  runway on {label:<15}{state['remaining_usd'] / r:>7.0f}d   "
@@ -413,8 +471,9 @@ def cmd_reconcile(_):
             else:
                 print(f"  runway on {label:<15}{'—':>7}    barely drawing")
         if len(rates) > 1:
-            print("  TWO runways because the rate changed. Neither is 'the' number —")
-            print("  which one holds depends on whether the agents run. Say both.")
+            word = {2: "TWO", 3: "THREE"}.get(len(rates), str(len(rates)))
+            print(f"  {word} runways because the rate changed. None is 'the' number —")
+            print("  which one holds depends on whether the agents run. Say them all.")
         print("  Quote this, not a remembered rate — the two diverged for four days in August.")
 
     gap = state["used_usd"] - baseline - named - non_product

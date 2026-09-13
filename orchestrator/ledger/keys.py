@@ -67,7 +67,7 @@ ALIASES = {
     "hume-secret-key": ("hume", "gamma-secret"),
 }
 
-# A label whose value never arrives — a section heading written as "For CASEY:".
+# A label whose value never arrives — a section heading written as "For gamma:".
 NOT_A_KEY = re.compile(r"^(for\b|notes?$|keys?$)", re.I)
 
 
@@ -156,7 +156,7 @@ def load(path: pathlib.Path = None) -> dict:
             continue
         label, value = _label(m.group(1)), m.group(2)
         if not value:
-            if NOT_A_KEY.match(m.group(1)):        # "For CASEY specifically:"
+            if NOT_A_KEY.match(m.group(1)):        # "For gamma specifically:"
                 pending = None
                 continue
             pending = ALIASES.get(label, (label, None))[::-1][::-1] \
@@ -290,7 +290,7 @@ def cmd_check(_):
     for name, p in reg["products"].items():
         for pool in p.get("pools", []):
             # The registry is the authority on a product's labels. Guessing from
-            # the folder name reported CASEY's Hume keys as missing when they are
+            # the folder name reported gamma's Hume keys as missing when they are
             # present under `gamma-api` and `-secret`.
             declared = (p.get("keys") or {}).get(pool)
             labels = ([declared] if isinstance(declared, str)

@@ -45,6 +45,17 @@ the queue, so a merge regenerates it instead of choosing a side.
 
 `--check` is what the Stop hook runs, so an agent is told before it finishes
 rather than the next morning.
+
+**It also checks one authored number, and only because leaving it unchecked cost
+nine days.** [@claude-code/maintenance · 2026-09-05] Hand-written rows are
+judgment and this script does not write them — but "in sync with the queue" was
+being read as "the page is current", and the Money row sat at $23.54 from
+2026-08-27 to 2026-09-05 while the pool fell to $7.35, green the whole way. So
+`money_stale` holds any item that talks about the pool to quoting a figure from
+the newest `pool-history.jsonl` reading, remaining or drawn. **It reports; it
+never rewrites** — the row stays the publisher's, and the message sends everyone
+else to `Board Inbox.md`. A number is not judgment, and it is the one part of a
+hand-written row that can be checked without touching what the row says.
 """
 from __future__ import annotations
 
@@ -368,6 +379,69 @@ def unstamped_edits(text: str) -> list[str]:
     return out
 
 
+# [@claude-code/maintenance · 2026-09-05] The Money row is hand-authored HTML,
+# so `--check` said "in sync" every day from 2026-08-27 to 2026-09-05 while the
+# row told the owner the pool held $23.54 and it actually held $7.35 — nine days and
+# four balance changes behind a green check. `--check` only ever diffed the
+# GENERATED handoffs section; nothing looked at an authored number. This is the
+# 2026-08-27 finding (`runway-typed-once-is-a-claim`) recurring, because that fix
+# taught `reconcile` to derive the runway but left the board a typed copy of it.
+#
+# The test is the one thing that cannot drift: a row that talks about the pool
+# must quote a figure from the newest `pool-history.jsonl` reading. Either the
+# remaining or the drawn figure counts, so wording stays free.
+POOL_HISTORY = VAULT / "05-Orchestrator" / "ledger" / "pool-history.jsonl"
+
+
+def latest_pool() -> dict | None:
+    """Newest reading in pool-history.jsonl, or None if unreadable."""
+    if not POOL_HISTORY.is_file():
+        return None
+    newest = None
+    for line in POOL_HISTORY.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if row.get("pool") != "openrouter":
+            continue
+        if newest is None or row.get("ts", "") >= newest.get("ts", ""):
+            newest = row
+    return newest
+
+
+def money_stale(board_text: str) -> list[str]:
+    """Board items about the pool that do not quote the newest reading."""
+    pool = latest_pool()
+    if not pool:
+        return []
+    current = {f"{pool[k]:,.2f}" for k in ("remaining_usd", "used_usd")
+               if isinstance(pool.get(k), (int, float))}
+    if not current:
+        return []
+    stale = []
+    for item in re.findall(r"<li>.*?</li>", board_text, flags=re.S):
+        plain = _plain(item)
+        if "$" not in plain:
+            continue
+        if not re.search(r"openrouter|the pool|pool-history|ledger\.ledger",
+                         plain, flags=re.I):
+            continue
+        if any(fig in plain for fig in current):
+            continue
+        head = re.search(r"<h3>(.*?)</h3>", item, flags=re.S)
+        head = _plain(head.group(1)).strip() if head else plain[:70]
+        quoted = ", ".join(re.findall(r"\$[\d,]+\.\d\d", plain)[:3])
+        stale.append(f"{head}\n      quotes {quoted or 'no figure'} · "
+                     f"newest reading {pool.get('date')}: "
+                     f"${pool['used_usd']:,.2f} drawn of ${pool['loaded_usd']:,.2f}, "
+                     f"${pool['remaining_usd']:,.2f} left")
+    return stale
+
+
 def rebuild(board_text: str, handoffs: list[dict]) -> str:
     i = board_text.index(SECTION_START)
     j = board_text.index(SECTION_END, i)
@@ -415,30 +489,43 @@ def main() -> None:
         if not inbox.is_file():
             print(f"no inbox at {inbox}"); return
         text = inbox.read_text(encoding="utf-8")
-        # Split on the HEADINGS, anchored to the start of a line — not on the
-        # bare strings. An entry whose body quotes the applied-entries heading
-        # (as one did on 2026-08-31, explaining that trap) truncated `pending`
-        # at its own body and hid every entry below it. The listing still
-        # printed a plausible number, so nothing looked wrong.
+        # **`## Pending` is the LAST section, and everything below it is
+        # pending.** Agents append with the equivalent of `cat >>`, so the end
+        # of the file is where requests land whether or not anyone read the
+        # instructions. With Pending above Applied, 25 appends in two weeks
+        # landed under Applied and vanished from this listing — including a
+        # decision of the owner's and the maintenance routine's own entry.
+        # Headings are matched anchored to a line start, never as bare
+        # strings, so a body that quotes one cannot truncate the list.
         parts = re.split(r"^## Pending\s*$", text, flags=re.M)
-        if len(parts) < 2:
-            print("Board Inbox.md has no ## Pending section"); sys.exit(2)
-        tail = re.split(r"^## Applied\s*$", parts[1], flags=re.M)
-        if len(tail) < 2:
-            print("Board Inbox.md has no ## Applied section"); sys.exit(2)
-        pending = tail[0]
-        entries = [b for b in re.split(r"^### ", pending, flags=re.M)[1:]]
+        if len(parts) != 2:
+            print("Board Inbox.md needs exactly one ## Pending heading"); sys.exit(2)
+        if re.search(r"^## Applied\s*$", parts[1], flags=re.M):
+            print("Board Inbox.md has ## Applied BELOW ## Pending. Pending must be\n"
+                  "  the last section, or appended requests land out of sight."); sys.exit(2)
+        # Any heading inside Pending opens an entry, including a `## ` one an
+        # agent wrote in its own shape — listed, and flagged, never hidden.
+        entries = re.split(r"^#{2,3} ", parts[1], flags=re.M)[1:]
         if not entries:
             print("Nothing queued. The board is current with what agents have asked for.")
             return
+        shape = re.compile(r"^\d{4}-\d{2}-\d{2} · @[\w./-]+ · \S")
+        bad = []
         print(f"{len(entries)} request(s) waiting for `keyword=board update`:\n")
         for e in entries:
             head, *rest = e.strip().splitlines()
             action = (rest[0].strip() if rest else "?")
             title = next((l for l in rest[1:] if l.strip()), "").strip()[:70]
-            print(f"  {head.strip()}")
-            print(f"      {action:<9} {title}")
+            flag = "" if shape.match(head.strip()) else "  ← not `### DATE · @agent · section`"
+            if flag:
+                bad.append(head.strip())
+            print(f"  {head.strip()}{flag}")
+            print(f"      {action[:40]:<9} {title}")
         print("\n  Applied by @claude-code/mikoshi only. Everyone else appends and moves on.")
+        if bad:
+            print(f"\n  {len(bad)} entry heading(s) are not in the documented shape. They are\n"
+                  "  still listed above; the publisher reads them, but reshape on apply.")
+            sys.exit(1)
         return
 
     if "--merge" in sys.argv:
@@ -464,9 +551,11 @@ def main() -> None:
         print("board has no 'Waiting on project owners' section — not touching it")
         return
     drifted = unstamped_edits(board)
+    money = money_stale(board)
     want = rebuild(board, open_handoffs(QUEUE.read_text(encoding="utf-8")))
-    if want == board and not drifted:
-        print("Open Board is in sync with the queue.")
+    if want == board and not drifted and not money:
+        print("Open Board is in sync with the queue, and its money figures "
+              "match the newest pool reading.")
         snapshot(board)
         return
     if drifted:
@@ -486,11 +575,23 @@ def main() -> None:
               + "OPEN BOARD IS OUT OF SYNC WITH THE QUEUE.\n"
                 "  Run: python3 05-Orchestrator/jobs/sync_board.py\n"
                 "  then republish it. The board is the page the owner reads.")
+    if money:
+        print(("\n" if drifted or want != board else "")
+              + "BOARD MONEY FIGURES ARE STALE:\n\n  "
+              + "\n  ".join(money)
+              + "\n\n  A balance is only useful before it is zero. This row is AUTHORED,\n"
+                "  so a resync will not touch it and it is the board publisher's to\n"
+                "  rewrite — if you are not @claude-code/mikoshi, check whether a\n"
+                "  request is already in `Board Inbox.md` and carry on; do not edit\n"
+                "  the board. Re-read the figure with `python3 -m ledger.ledger\n"
+                "  reconcile`. Publisher: rewrite the row and move its stamp.")
     if check:
         sys.exit(1)
     BOARD.write_text(want, encoding="utf-8")
     snapshot(want)
-    print("Open Board resynced from the queue. Republish it.")
+    print("Open Board resynced from the queue. Republish it."
+          + ("\n  The stale money figures above are NOT fixed by this — "
+             "rewrite that row by hand." if money else ""))
 
 
 if __name__ == "__main__":

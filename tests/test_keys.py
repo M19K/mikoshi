@@ -64,7 +64,7 @@ Demo Project: {FAKE}
 
 
 def test_a_section_label_is_not_mistaken_for_a_key(tmp_path):
-    """`For CASEY:` is a heading a human wrote, not a label whose value is on
+    """`For DEMO:` is a heading a human wrote, not a label whose value is on
     the next line."""
     k = keys.load(write_keys(tmp_path, f"""
 ## OpenRouter

@@ -65,6 +65,17 @@ def test_the_owners_name_survives_nowhere_in_what_ships(repo):
     assert hits == [], hits
 
 
+def test_the_cost_registry_ships_as_an_example_not_as_the_owners(repo):
+    """Rewriting product names left one product's database plan, domain and
+    reasons for paying in the published registry. The structure ships; the
+    subscriptions do not."""
+    import json
+    reg = json.loads((repo / "orchestrator" / "ledger" / "products.json")
+                     .read_text(encoding="utf-8"))
+    assert list(reg["products"]) == ["example-product"], list(reg["products"])
+    assert list(reg["pools"]) == ["openrouter"], list(reg["pools"])
+
+
 def test_no_key_material_ships(repo):
     pat = re.compile(r"sk-(or-v1|ant|proj)-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}")
     hits = []
