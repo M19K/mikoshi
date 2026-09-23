@@ -5,7 +5,7 @@ description = "Shared memory for several AI agents — a plain-markdown vault wi
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Maaz Kazi", email = "maazkazi_official@outlook.com" }]
+authors = [{ name = "Maaz Kazi" }]
 
 # **Deliberately almost empty, and that is the design.** The vault is markdown
 # and SQLite; the model is local. There is no web framework, no ORM, no vector
