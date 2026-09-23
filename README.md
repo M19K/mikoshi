@@ -212,3 +212,9 @@ better at judging is untested.
 
 MIT. See [LICENSE](LICENSE).
 
+
+## Author
+
+Built by **Maaz Kazi** — product and systems, San Francisco.
+
+[maazkazi.com](https://maazkazi.com) · [github.com/M19K](https://github.com/M19K) · [linkedin.com/in/maazkazi26](https://www.linkedin.com/in/maazkazi26/)
